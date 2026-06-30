@@ -1,0 +1,107 @@
+<section class="panel">
+  <header class="panel-head">
+    <div>
+      <h2>All leads</h2>
+      <p class="panel-sub">{{ filtered().length }} shown · nothing is ever deleted</p>
+    </div>
+    <div class="filters">
+      <label class="filter">
+        <span>Source</span>
+        <select class="select" [value]="sourceFilter()" (change)="sourceFilter.set($any($event.target).value)">
+          <option value="all">All</option>
+          @for (s of sources; track s) {
+            <option [value]="s">{{ SOURCE_LABEL[s] }}</option>
+          }
+        </select>
+      </label>
+      <label class="filter">
+        <span>Status</span>
+        <select class="select" [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value)">
+          <option value="all">All</option>
+          @for (s of statuses; track s) {
+            <option [value]="s">{{ s }}</option>
+          }
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <div class="table-wrap">
+    <table class="leads-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Source</th>
+          <th>Phone</th>
+          <th>Service</th>
+          <th>Status</th>
+          <th>Last contact</th>
+          <th>Entered by</th>
+          <th class="action-col">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (lead of filtered(); track lead.id) {
+          <tr>
+            <td>
+              <button class="link-name" type="button" (click)="edit.emit(lead)">{{ lead.name }}</button>
+              @if (lead.source === 'trial') {
+                <button class="expand-toggle" type="button" (click)="toggleExpand(lead)">
+                  {{ expandedId() === lead.id ? 'Hide check-ins' : 'Check-ins' }}
+                </button>
+              }
+            </td>
+            <td><span class="tag">{{ SOURCE_LABEL[lead.source] }}</span></td>
+            <td>{{ lead.phone }}</td>
+            <td>{{ lead.serviceUsed || (lead.source === 'promo' ? lead.promoName : '—') }}</td>
+            <td>
+              <span class="pill" [style.background]="STATUS_COLOR[lead.status]">{{ lead.status }}</span>
+            </td>
+            <td [title]="dateTime(lead.lastContactAt)">{{ shortDate(lead.lastContactAt) }}</td>
+            <td>{{ lead.enteredBy }}</td>
+            <td class="action-col">
+              @switch (lead.status) {
+                @case ('Responded') {
+                  <div class="action-pair">
+                    <button class="btn btn-sm btn-primary" type="button" (click)="convert(lead)">Convert</button>
+                    <button class="btn btn-sm btn-danger" type="button" (click)="markLost(lead)">Lost</button>
+                  </div>
+                }
+                @case ('Converted') {
+                  <span class="terminal" [title]="lead.conversionOutcome || ''">✓ {{ dateTime(lead.convertedAt) }}</span>
+                }
+                @case ('Lost') {
+                  <span class="terminal muted">Lost {{ shortDate(lead.lostAt) }}</span>
+                }
+                @default {
+                  <button class="btn btn-sm" type="button" (click)="advance(lead)">{{ advanceLabel(lead) }}</button>
+                }
+              }
+            </td>
+          </tr>
+
+          <!-- Trial check-ins detail row -->
+          @if (lead.source === 'trial' && expandedId() === lead.id && lead.touchpoints) {
+            <tr class="detail-row">
+              <td colspan="8">
+                <div class="touchpoints">
+                  <span class="touchpoints-label">Trial check-ins</span>
+                  @for (key of TRIAL_TOUCHPOINT_ORDER; track key) {
+                    <div class="touchpoint" [class.done]="lead.touchpoints[key].done">
+                      <span class="tp-name">{{ TRIAL_TOUCHPOINT_LABEL[key] }}</span>
+                      @if (lead.touchpoints[key].done) {
+                        <span class="tp-audit">✓ {{ shortDate(lead.touchpoints[key].at) }} · {{ lead.touchpoints[key].by }}</span>
+                      } @else {
+                        <button class="btn btn-sm" type="button" (click)="markTouchpoint(lead, key)">Mark done</button>
+                      }
+                    </div>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

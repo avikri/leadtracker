@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "comment": "Backs LeadService.leads — filter by locationId, order by createdAt. Firestore requires this composite index for the equality + orderBy query.",
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locationId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

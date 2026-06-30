@@ -1,0 +1,27 @@
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◐</span>
+    <div>
+      <h1>Front Desk · Leads</h1>
+      <span class="brand-sub">Lead tracker</span>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <!-- Roadmap placeholder: Phase 2 pulls leads from Mindbody + ScoreApp automatically. -->
+    <button class="btn" type="button" disabled title="Coming soon — automatic import from Mindbody & ScoreApp">
+      Auto-import (coming soon)
+    </button>
+    <button class="btn btn-primary" type="button" (click)="openAdd()">+ Add lead</button>
+  </div>
+</header>
+
+<main class="dashboard">
+  <app-follow-up-queue (edit)="openEdit($event)"></app-follow-up-queue>
+  <app-leads-table (edit)="openEdit($event)"></app-leads-table>
+</main>
+
+<app-lead-modal
+  [open]="modalOpen()"
+  [lead]="editingLead()"
+  (closed)="closeModal()"
+></app-lead-modal>

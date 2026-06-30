@@ -1,0 +1,115 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onBackdrop()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <header class="modal-head">
+        <h2>{{ isEdit ? 'Edit lead' : 'Add lead' }}</h2>
+        <button class="icon-btn" type="button" (click)="cancel()" aria-label="Close">&times;</button>
+      </header>
+
+      <div class="modal-body">
+        <!-- Source FIRST — swaps the field set below -->
+        <div class="source-picker">
+          <span class="field-label">Source</span>
+          <div class="source-options">
+            @for (s of sources; track s) {
+              <button
+                type="button"
+                class="source-chip"
+                [class.active]="draft.source === s"
+                (click)="draft.source = s"
+              >
+                {{ SOURCE_LABEL[s] }}
+              </button>
+            }
+          </div>
+          <p class="hint">Goal: {{ SOURCE_GOAL[draft.source] }}. {{ contactMethodNote }}</p>
+        </div>
+
+        <!-- Shared fields (every source) -->
+        <div class="grid-2">
+          <label>
+            <span class="field-label">Name *</span>
+            <input class="input" [(ngModel)]="draft.name" name="name" placeholder="Full name" />
+          </label>
+          <label>
+            <span class="field-label">Phone *</span>
+            <input class="input" [(ngModel)]="draft.phone" name="phone" placeholder="021 …" />
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <!-- Email is optional for promo, captured for new/quiz; kept visible everywhere. -->
+          <label>
+            <span class="field-label">Email{{ draft.source === 'promo' ? ' (optional)' : '' }}</span>
+            <input class="input" [(ngModel)]="draft.email" name="email" placeholder="name@example.co.nz" />
+          </label>
+
+          <!-- Quiz leads don't record a service used. -->
+          @if (draft.source !== 'quiz') {
+            <label>
+              <span class="field-label">Service used</span>
+              <input
+                class="input"
+                [(ngModel)]="draft.serviceUsed"
+                name="serviceUsed"
+                placeholder="e.g. Reformer Pilates"
+              />
+            </label>
+          }
+        </div>
+
+        <!-- TRIAL-specific -->
+        @if (draft.source === 'trial') {
+          <div class="source-section">
+            <div class="grid-2">
+              <label>
+                <span class="field-label">Trial stage</span>
+                <input class="input" [(ngModel)]="draft.trialStage" name="trialStage" placeholder="e.g. Day 3" />
+              </label>
+              <label>
+                <span class="field-label">Trial day</span>
+                <input class="input" type="number" min="1" max="7" [(ngModel)]="draft.trialDay" name="trialDay" />
+              </label>
+            </div>
+            <label>
+              <span class="field-label">Experience notes</span>
+              <textarea class="textarea" [(ngModel)]="draft.experienceNotes" name="experienceNotes"></textarea>
+            </label>
+            @if (isEdit) {
+              <p class="hint">Trial check-ins (first / mid / final) are tracked on the lead's row.</p>
+            }
+          </div>
+        }
+
+        <!-- PROMO-specific -->
+        @if (draft.source === 'promo') {
+          <div class="source-section">
+            <div class="grid-2">
+              <label>
+                <span class="field-label">Campaign / promo name</span>
+                <input class="input" [(ngModel)]="draft.promoName" name="promoName" placeholder="e.g. 3-Week Floats" />
+              </label>
+              <label>
+                <span class="field-label">Purchase date</span>
+                <input class="input" type="date" [(ngModel)]="draft.purchaseDate" name="purchaseDate" />
+              </label>
+            </div>
+          </div>
+        }
+
+        <!-- Notes (shared) -->
+        <label>
+          <span class="field-label">Notes</span>
+          <textarea class="textarea" [(ngModel)]="draft.notes" name="notes"></textarea>
+        </label>
+      </div>
+
+      <footer class="modal-foot">
+        <button class="btn" type="button" (click)="cancel()">Cancel</button>
+        <button class="btn btn-primary" type="button" [disabled]="!canSave() || saving" (click)="save()">
+          {{ saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add lead' }}
+        </button>
+      </footer>
+    </div>
+  </div>
+}

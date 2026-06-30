@@ -1,0 +1,23 @@
+# Angular / Node
+/dist
+/tmp
+/out-tsc
+/node_modules
+npm-debug.log*
+
+# IDE
+.idea
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+
+# Firebase
+.firebase
+firebase-debug.log
+
+# Angular CLI cache
+/.angular/cache
+
+# Environment files (contain Firebase config / secrets)
+/src/environments/environment.ts
+/src/environments/environment.prod.ts

@@ -1,0 +1,44 @@
+<section class="panel">
+  <header class="panel-head">
+    <div>
+      <h2>To contact today</h2>
+      <p class="panel-sub">New leads, oldest first. Quiz leads are called; everyone else texted.</p>
+    </div>
+    <span class="count-badge">{{ queue().length }}</span>
+  </header>
+
+  @if (queue().length === 0) {
+    <p class="empty">Queue clear — every new lead has been contacted. 🎉</p>
+  } @else {
+    <div class="queue-grid">
+      @for (lead of queue(); track lead.id) {
+        <article class="queue-card">
+          <div class="queue-card-top">
+            <span class="tag">{{ SOURCE_LABEL[lead.source] }}</span>
+            <span class="queue-age">{{ relative(lead.createdAt) }}</span>
+          </div>
+
+          <button class="queue-name" type="button" (click)="edit.emit(lead)">{{ lead.name }}</button>
+          <div class="queue-phone">{{ lead.phone }}</div>
+
+          @if (lead.serviceUsed) {
+            <div class="queue-meta">{{ lead.serviceUsed }}</div>
+          }
+          @if (lead.source === 'promo' && lead.promoName) {
+            <div class="queue-meta">Promo: {{ lead.promoName }}</div>
+          }
+          @if (lead.source === 'trial') {
+            <div class="queue-meta">Next: {{ nextTouchpoint(lead) }}</div>
+          }
+
+          <div class="queue-foot">
+            <span class="queue-by">Entered by {{ lead.enteredBy }}</span>
+            <button class="btn btn-primary btn-sm" type="button" (click)="markContacted(lead)">
+              {{ contactActionLabel(lead.contactMethod) }}
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  }
+</section>
