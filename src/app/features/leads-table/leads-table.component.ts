@@ -113,6 +113,24 @@ export class LeadsTableComponent implements OnInit {
     return this.fetchPage(this.pageIndex());
   }
 
+  // --- External refresh (driven by the shared Add/Edit modal via the dashboard) ---------
+
+  /**
+   * An edit landed elsewhere: re-fetch the page currently shown so the changed row updates
+   * in place. The lead keeps its position (edits don't reorder), so we stay on this page.
+   */
+  refreshAfterEdit(): Promise<void> {
+    return this.runLoading(() => this.reloadCurrentPage());
+  }
+
+  /**
+   * A new lead was added: it's the newest, so jump to page 1 where it will appear at the top
+   * (rather than reloading a later page that wouldn't show it).
+   */
+  refreshAfterAdd(): Promise<void> {
+    return this.loadFirstPage();
+  }
+
   /**
    * Fetch `targetIndex` and apply it to state. Uses `pageCursors()[targetIndex - 1]` as the
    * `startAfter` cursor (none for page 0), records this page's tail cursor, and drops any

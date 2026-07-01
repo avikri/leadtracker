@@ -27,5 +27,6 @@
 <app-lead-modal
   [open]="modalOpen()"
   [lead]="editingLead()"
+  (saved)="onLeadSaved($event)"
   (closed)="closeModal()"
 ></app-lead-modal>

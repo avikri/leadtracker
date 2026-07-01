@@ -40,6 +40,12 @@ export class LeadModalComponent {
 
   @Input() open = false;
   @Output() closed = new EventEmitter<void>();
+  /**
+   * Fired after a successful write, carrying `created` (true = new lead, false = edit).
+   * The dashboard uses it to refresh the one-shot paginated table, which — unlike the live
+   * queue — won't otherwise reflect the change until a page reload.
+   */
+  @Output() saved = new EventEmitter<boolean>();
 
   /** The lead being edited, or null to add a new one. */
   private editing: Lead | null = null;
@@ -85,7 +91,9 @@ export class LeadModalComponent {
     if (!this.canSave() || this.saving) return;
     this.saving = true;
     try {
+      let created: boolean;
       if (this.isEdit && this.editing) {
+        created = false;
         const id = this.editing.id;
         // First-class source change: lets the service swap the conditional field set.
         if (this.draft.source !== this.editing.source) {
@@ -98,8 +106,11 @@ export class LeadModalComponent {
           ...this.sourcePatch(),
         });
       } else {
+        created = true;
         await this.leadService.createLead(this.toCreateDraft());
       }
+      // Signal the write landed BEFORE closing, so the table reloads off fresh Firestore data.
+      this.saved.emit(created);
       this.closed.emit();
     } finally {
       this.saving = false;
