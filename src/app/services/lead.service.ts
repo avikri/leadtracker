@@ -3,23 +3,46 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import {
   DocumentData,
   Firestore,
+  QueryConstraint,
+  QueryDocumentSnapshot,
   Timestamp,
   UpdateData,
   addDoc,
   collection,
   collectionData,
   doc,
+  getDocs,
+  limit,
   orderBy,
   query,
   serverTimestamp,
+  startAfter,
   updateDoc,
   where,
 } from '@angular/fire/firestore';
 
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
-import { Lead, LeadDraft, LeadSource, TrialTouchpoints } from '../models/lead.model';
+import { Lead, LeadDraft, LeadSource, LeadStatus, TrialTouchpoints } from '../models/lead.model';
 import { TrialTouchpointKey, defaultContactMethod } from '../models/lead.constants';
+
+/** A cursor into the leads collection: the last document snapshot of a fetched page. */
+export type LeadCursor = QueryDocumentSnapshot<DocumentData>;
+
+/** Filters + cursor describing which slice of the "All leads" table to fetch. */
+export interface LeadPageQuery {
+  source: LeadSource | 'all';
+  status: LeadStatus | 'all';
+  /** Fetch the page immediately AFTER this document; null/omitted fetches page 1. */
+  startAfterDoc?: LeadCursor | null;
+}
+
+/** One page of table results plus the cursor needed to page forward from it. */
+export interface LeadPage {
+  leads: Lead[];
+  /** Last doc of this page — feed back as `startAfterDoc` for the next page. Null if empty. */
+  lastDoc: LeadCursor | null;
+}
 
 /**
  * The ONLY place the app talks to Firestore for leads. Components read the reactive
@@ -45,9 +68,18 @@ export class LeadService {
    */
   readonly locationId = environment.defaultLocationId;
 
+  /** Page size for the paginated "All leads" table, enforced via Firestore `limit()`. */
+  readonly pageSize = 20;
+
   // --- Reactive reads ---------------------------------------------------------
 
-  /** Live stream of this location's leads, newest entered first. */
+  /**
+   * Live stream of this location's leads, newest entered first.
+   *
+   * NOTE: this backs the (deliberately unpaginated) "To text today" queue only. The
+   * "All leads" table does NOT read this — it pages Firestore-side via `fetchLeadsPage`
+   * so it stays bounded as the collection grows without limit.
+   */
   readonly leads = toSignal(
     collectionData(
       query(
@@ -69,6 +101,34 @@ export class LeadService {
       .filter((l) => l.status === 'New')
       .sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis()),
   );
+
+  // --- Paginated table read ---------------------------------------------------
+
+  /**
+   * Fetch one page (`pageSize` docs) of the "All leads" table, filtered by source/status
+   * and ordered by `createdAt` desc, using Firestore cursor pagination.
+   *
+   * The `source`/`status` filters run as `where` clauses INSIDE the query (not a client
+   * post-filter), so callers must reset to page 1 — i.e. omit `startAfterDoc` — whenever a
+   * filter changes. Shares the same base constraints (locationId + createdAt order) as the
+   * live `leads` query above so query-building isn't duplicated across queue and table.
+   *
+   * Returns the page's leads plus its tail cursor (`lastDoc`); a full page (`leads.length
+   * === pageSize`) means more may exist. No `count()` is issued — we don't need an exact total.
+   */
+  async fetchLeadsPage(opts: LeadPageQuery): Promise<LeadPage> {
+    const constraints: QueryConstraint[] = [where('locationId', '==', this.locationId)];
+    if (opts.source !== 'all') constraints.push(where('source', '==', opts.source));
+    if (opts.status !== 'all') constraints.push(where('status', '==', opts.status));
+    constraints.push(orderBy('createdAt', 'desc'));
+    if (opts.startAfterDoc) constraints.push(startAfter(opts.startAfterDoc));
+    constraints.push(limit(this.pageSize));
+
+    const snap = await getDocs(query(this.leadsCollection, ...constraints));
+    const leads = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Lead);
+    const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+    return { leads, lastDoc };
+  }
 
   // --- Create -----------------------------------------------------------------
 

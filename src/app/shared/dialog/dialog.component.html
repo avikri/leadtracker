@@ -1,0 +1,42 @@
+@if (current(); as c) {
+  <div class="modal-backdrop" (click)="cancel()" (keydown)="onKeydown($event)">
+    <div
+      #panel
+      class="modal-panel dialog-panel"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="c.title"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="modal-head">
+        <h2>{{ c.title }}</h2>
+        <button class="icon-btn" type="button" (click)="cancel()" aria-label="Close">&times;</button>
+      </header>
+
+      <div class="modal-body">
+        <p class="dialog-message">{{ c.message }}</p>
+        @if (c.isPrompt) {
+          <input
+            class="input"
+            [(ngModel)]="promptValue"
+            [placeholder]="c.placeholder"
+            (keydown.enter)="confirm()"
+          />
+        }
+      </div>
+
+      <footer class="modal-foot">
+        <button class="btn" type="button" (click)="cancel()">{{ c.cancelLabel }}</button>
+        <button
+          class="btn"
+          [class.btn-primary]="c.variant !== 'destructive'"
+          [class.btn-danger]="c.variant === 'destructive'"
+          type="button"
+          (click)="confirm()"
+        >
+          {{ c.confirmLabel }}
+        </button>
+      </footer>
+    </div>
+  </div>
+}

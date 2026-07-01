@@ -1,0 +1,3 @@
+# Never commit credentials or installed deps.
+serviceAccountKey.json
+node_modules/

@@ -1,11 +1,42 @@
 {
   "indexes": [
     {
-      "comment": "Backs LeadService.leads — filter by locationId, order by createdAt. Firestore requires this composite index for the equality + orderBy query.",
+      "comment": "Backs LeadService.leads and the All-leads table with no source/status filter — filter by locationId, order by createdAt. Firestore requires this composite index for the equality + orderBy query.",
       "collectionGroup": "leads",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "locationId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "comment": "All-leads table filtered by source only (LeadService.fetchLeadsPage): locationId + source equality, order by createdAt.",
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locationId", "order": "ASCENDING" },
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "comment": "All-leads table filtered by status only (LeadService.fetchLeadsPage): locationId + status equality, order by createdAt.",
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locationId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "comment": "All-leads table filtered by source AND status (LeadService.fetchLeadsPage): locationId + source + status equality, order by createdAt.",
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locationId", "order": "ASCENDING" },
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }

@@ -2,12 +2,12 @@
   <header class="panel-head">
     <div>
       <h2>All leads</h2>
-      <p class="panel-sub">{{ filtered().length }} shown · nothing is ever deleted</p>
+      <p class="panel-sub">Page {{ pageIndex() + 1 }} · nothing is ever deleted</p>
     </div>
     <div class="filters">
       <label class="filter">
         <span>Source</span>
-        <select class="select" [value]="sourceFilter()" (change)="sourceFilter.set($any($event.target).value)">
+        <select class="select" [value]="sourceFilter()" [disabled]="loading()" (change)="onSourceFilterChange($any($event.target).value)">
           <option value="all">All</option>
           @for (s of sources; track s) {
             <option [value]="s">{{ SOURCE_LABEL[s] }}</option>
@@ -16,7 +16,7 @@
       </label>
       <label class="filter">
         <span>Status</span>
-        <select class="select" [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value)">
+        <select class="select" [value]="statusFilter()" [disabled]="loading()" (change)="onStatusFilterChange($any($event.target).value)">
           <option value="all">All</option>
           @for (s of statuses; track s) {
             <option [value]="s">{{ s }}</option>
@@ -41,7 +41,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (lead of filtered(); track lead.id) {
+        @for (lead of pageLeads(); track lead.id) {
           <tr>
             <td>
               <button class="link-name" type="button" (click)="edit.emit(lead)">{{ lead.name }}</button>
@@ -63,8 +63,8 @@
               @switch (lead.status) {
                 @case ('Responded') {
                   <div class="action-pair">
-                    <button class="btn btn-sm btn-primary" type="button" (click)="convert(lead)">Convert</button>
-                    <button class="btn btn-sm btn-danger" type="button" (click)="markLost(lead)">Lost</button>
+                    <button class="btn btn-sm btn-primary" type="button" [disabled]="loading()" (click)="convert(lead)">Convert</button>
+                    <button class="btn btn-sm btn-danger" type="button" [disabled]="loading()" (click)="markLost(lead)">Lost</button>
                   </div>
                 }
                 @case ('Converted') {
@@ -74,7 +74,7 @@
                   <span class="terminal muted">Lost {{ shortDate(lead.lostAt) }}</span>
                 }
                 @default {
-                  <button class="btn btn-sm" type="button" (click)="advance(lead)">{{ advanceLabel(lead) }}</button>
+                  <button class="btn btn-sm" type="button" [disabled]="loading()" (click)="advance(lead)">{{ advanceLabel(lead) }}</button>
                 }
               }
             </td>
@@ -92,7 +92,7 @@
                       @if (lead.touchpoints[key].done) {
                         <span class="tp-audit"><svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> {{ shortDate(lead.touchpoints[key].at) }} · {{ lead.touchpoints[key].by }}</span>
                       } @else {
-                        <button class="btn btn-sm" type="button" (click)="markTouchpoint(lead, key)">Mark done</button>
+                        <button class="btn btn-sm" type="button" [disabled]="loading()" (click)="markTouchpoint(lead, key)">Mark done</button>
                       }
                     </div>
                   }
@@ -100,8 +100,34 @@
               </td>
             </tr>
           }
+        } @empty {
+          <tr>
+            <td class="table-empty" colspan="8">
+              {{ loading() ? 'Loading…' : 'No leads match these filters.' }}
+            </td>
+          </tr>
         }
       </tbody>
     </table>
   </div>
+
+  <footer class="pager">
+    <button
+      class="btn btn-sm"
+      type="button"
+      [disabled]="pageIndex() === 0 || loading()"
+      (click)="previous()"
+    >
+      ← Previous
+    </button>
+    <span class="pager-status">Page {{ pageIndex() + 1 }}{{ loading() ? ' · loading…' : '' }}</span>
+    <button
+      class="btn btn-sm"
+      type="button"
+      [disabled]="!hasNextPage() || loading()"
+      (click)="next()"
+    >
+      Next →
+    </button>
+  </footer>
 </section>

@@ -1,0 +1,14 @@
+{
+  "name": "leadtracker-scripts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "One-off maintenance scripts (Admin SDK). NOT part of the Angular app bundle.",
+  "type": "module",
+  "scripts": {
+    "seed:prod": "node seed-prod.mjs",
+    "cleanup:seed": "node cleanup-seed.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

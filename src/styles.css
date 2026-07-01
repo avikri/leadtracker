@@ -447,6 +447,26 @@ h3 {
   color: #15803d;
 }
 
+/* Empty-state + pagination for the All-leads table */
+.table-empty {
+  text-align: center;
+  padding: 24px 8px;
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 14px;
+}
+.pager-status {
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ============================ Modal ============================ */
 .modal-backdrop {
   position: fixed;
@@ -498,6 +518,16 @@ h3 {
   gap: 10px;
   padding: 14px 20px;
   border-top: 1px solid var(--border);
+}
+
+/* Confirm / prompt dialog — narrower than the form modal, shares the modal chrome. */
+.dialog-panel {
+  max-width: 420px;
+}
+.dialog-message {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.5;
 }
 .grid-2 {
   display: grid;

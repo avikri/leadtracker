@@ -105,8 +105,9 @@ become a multi-studio/franchise product with no schema retrofit. To go multi-stu
 ## Assumptions made (where the spec was open)
 
 - Single-screen app: the top bar lives in the dashboard rather than a separate route.
-- `Convert` / source-change outcome use a quick `prompt()` in the baseline — swap for a proper
-  dialog when you flesh out the UI.
+- `Convert` and `Mark as Lost` confirmations go through the app-wide `DialogService` /
+  `app-dialog` component (signal-driven, Promise-returning, focus-trapped) rather than the
+  browser's native `confirm()` / `prompt()`.
 - Template-driven form in the modal for readability; move to reactive forms when validation grows.
 - Status colours, labels, and the conversion-prompt wording are guesses — all centralised in
   `lead.constants.ts`.
