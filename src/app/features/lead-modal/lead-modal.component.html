@@ -38,14 +38,16 @@
         </div>
 
         <div class="grid-2">
-          <!-- Email is optional for promo, captured for new/quiz; kept visible everywhere. -->
-          <label>
-            <span class="field-label">Email{{ draft.source === 'promo' ? ' (optional)' : '' }}</span>
-            <input class="input" [(ngModel)]="draft.email" name="email" placeholder="name@example.co.nz" />
-          </label>
+          <!-- Email: new/quiz/promo only. Trials are followed up by phone, so no email field. -->
+          @if (draft.source !== 'trial') {
+            <label>
+              <span class="field-label">Email{{ draft.source === 'promo' ? ' (optional)' : '' }}</span>
+              <input class="input" [(ngModel)]="draft.email" name="email" placeholder="name@example.co.nz" />
+            </label>
+          }
 
-          <!-- Quiz leads don't record a service used. -->
-          @if (draft.source !== 'quiz') {
+          <!-- Service used: new clients and trials only (quiz/promo don't record one). -->
+          @if (draft.source === 'new' || draft.source === 'trial') {
             <label>
               <span class="field-label">Service used</span>
               <input

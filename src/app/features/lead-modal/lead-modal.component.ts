@@ -120,11 +120,15 @@ export class LeadModalComponent {
   // --- field set builders -----------------------------------------------------
 
   private sharedPatch(): Partial<Lead> {
+    // Mirror the form's per-source field visibility so hidden fields aren't persisted stale:
+    // trials capture no email; quiz/promo capture no service used.
+    const usesEmail = this.draft.source !== 'trial';
+    const usesService = this.draft.source === 'new' || this.draft.source === 'trial';
     return {
       name: this.draft.name.trim(),
       phone: this.draft.phone.trim(),
-      email: this.draft.email.trim() || null,
-      serviceUsed: this.draft.serviceUsed.trim() || null,
+      email: usesEmail ? this.draft.email.trim() || null : null,
+      serviceUsed: usesService ? this.draft.serviceUsed.trim() || null : null,
       notes: this.draft.notes.trim() || null,
     };
   }

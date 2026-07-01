@@ -246,11 +246,6 @@ export class LeadService {
     });
   }
 
-  /** Re-record a contact attempt without changing status (e.g. left another voicemail). */
-  async logContactAttempt(lead: Lead): Promise<void> {
-    await updateDoc(this.docRef(lead.id), { lastContactAt: serverTimestamp() });
-  }
-
   // --- Trial touchpoints ------------------------------------------------------
 
   /** Mark one of the three trial check-ins done, with audit. */

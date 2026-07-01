@@ -57,7 +57,12 @@
             <td>
               <span class="pill" [style.background]="STATUS_COLOR[lead.status]">{{ lead.status }}</span>
             </td>
-            <td [title]="dateTime(lead.lastContactAt)">{{ shortDate(lead.lastContactAt) }}</td>
+            <td [title]="dateTime(lead.lastContactAt)">
+              {{ shortDate(lead.lastContactAt) }}
+              @if (lead.contactedBy) {
+                <span class="cell-sub">by {{ lead.contactedBy }}</span>
+              }
+            </td>
             <td>{{ lead.enteredBy }}</td>
             <td class="action-col">
               @switch (lead.status) {

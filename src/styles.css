@@ -156,7 +156,8 @@ h3 {
   gap: 12px;
 }
 .brand-mark {
-  font-size: 22px;
+  display: inline-flex;
+  color: var(--accent);
 }
 .brand h1 {
   font-size: 16px;
@@ -404,6 +405,11 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 .terminal.muted {
+  color: var(--ink-faint);
+}
+.cell-sub {
+  display: block;
+  font-size: 11px;
   color: var(--ink-faint);
 }
 
