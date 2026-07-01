@@ -26,7 +26,13 @@
               "budgets": [
                 { "type": "initial", "maximumWarning": "1mb", "maximumError": "2mb" }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ]
             },
             "development": {
               "optimization": false,
@@ -47,5 +53,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "analytics": "6dca7b26-202c-4ecd-af13-d869d9127b2a"
   }
 }

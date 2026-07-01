@@ -8,7 +8,13 @@
   </header>
 
   @if (queue().length === 0) {
-    <p class="empty">Queue clear — every new lead has been contacted. 🎉</p>
+    <p class="empty">
+      <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8.5 12.5l2.5 2.5 4.5-5" />
+      </svg>
+      Queue clear — every new lead has been contacted.
+    </p>
   } @else {
     <div class="queue-grid">
       @for (lead of queue(); track lead.id) {

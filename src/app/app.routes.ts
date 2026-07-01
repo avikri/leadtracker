@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { DashboardComponent } from './features/dashboard/dashboard.component';
+import { LoginComponent } from './features/login/login.component';
 
 export const routes: Routes = [
   {
@@ -8,6 +9,6 @@ export const routes: Routes = [
     component: DashboardComponent,
     canActivate: [authGuard],
   },
-  // TODO: add a real /login route when Firebase Auth users exist (see AuthService + authGuard).
+  { path: 'login', component: LoginComponent },
   { path: '**', redirectTo: '' },
 ];

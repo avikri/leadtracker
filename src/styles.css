@@ -167,7 +167,48 @@ h3 {
 }
 .topbar-actions {
   display: flex;
+  align-items: center;
   gap: 10px;
+}
+.topbar-user {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding-left: 4px;
+}
+
+/* ============================ Login ============================ */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.login-brand h1 {
+  font-size: 16px;
+}
+.login-error {
+  margin: 0;
+  font-size: 13px;
+  color: #b91c1c;
+}
+.login-submit {
+  justify-content: center;
+  width: 100%;
 }
 
 /* ============================ Layout ============================ */
@@ -217,6 +258,15 @@ h3 {
 .empty {
   color: var(--ink-faint);
   padding: 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Inline stroke icons — sit on the text baseline, inherit surrounding colour. */
+.icon {
+  flex: none;
+  vertical-align: -0.15em;
 }
 
 /* ============================ Queue ============================ */

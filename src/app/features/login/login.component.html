@@ -1,0 +1,47 @@
+<div class="login-wrap">
+  <form class="login-card panel" (ngSubmit)="submit()">
+    <div class="login-brand">
+      <span class="brand-mark">◐</span>
+      <div>
+        <h1>Front Desk · Leads</h1>
+        <span class="brand-sub">Sign in to continue</span>
+      </div>
+    </div>
+
+    <div>
+      <label class="field-label" for="login-email">Email</label>
+      <input
+        id="login-email"
+        class="input"
+        type="email"
+        name="email"
+        autocomplete="username"
+        [(ngModel)]="email"
+        [disabled]="submitting()"
+        required
+      />
+    </div>
+
+    <div>
+      <label class="field-label" for="login-password">Password</label>
+      <input
+        id="login-password"
+        class="input"
+        type="password"
+        name="password"
+        autocomplete="current-password"
+        [(ngModel)]="password"
+        [disabled]="submitting()"
+        required
+      />
+    </div>
+
+    @if (error()) {
+      <p class="login-error">{{ error() }}</p>
+    }
+
+    <button class="btn btn-primary login-submit" type="submit" [disabled]="submitting()">
+      {{ submitting() ? 'Signing in…' : 'Sign in' }}
+    </button>
+  </form>
+</div>

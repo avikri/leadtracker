@@ -168,7 +168,7 @@ class Component extends DCLogic {
       isResponded: l.status === 'Responded',
       isTerminal: l.status === 'Converted' || l.status === 'Lost',
       terminalColor: l.status === 'Converted' ? '#15803d' : '#8a8a83',
-      terminalText: l.status === 'Converted' ? ('✓ ' + (l.outcome || 'Converted')) : 'Lost',
+      terminalText: l.status === 'Converted' ? (l.outcome || 'Converted') : 'Lost',
     });
 
     const rows = this.data.map(decorate);
