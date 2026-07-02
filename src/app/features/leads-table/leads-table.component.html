@@ -2,29 +2,90 @@
   <header class="panel-head">
     <div>
       <h2>All leads</h2>
-      <p class="panel-sub">Page {{ pageIndex() + 1 }} · nothing is ever deleted</p>
-    </div>
-    <div class="filters">
-      <label class="filter">
-        <span>Source</span>
-        <select class="select" [value]="sourceFilter()" [disabled]="loading()" (change)="onSourceFilterChange($any($event.target).value)">
-          <option value="all">All</option>
-          @for (s of sources; track s) {
-            <option [value]="s">{{ SOURCE_LABEL[s] }}</option>
-          }
-        </select>
-      </label>
-      <label class="filter">
-        <span>Status</span>
-        <select class="select" [value]="statusFilter()" [disabled]="loading()" (change)="onStatusFilterChange($any($event.target).value)">
-          <option value="all">All</option>
-          @for (s of statuses; track s) {
-            <option [value]="s">{{ s }}</option>
-          }
-        </select>
-      </label>
+      <p class="panel-sub">{{ resultSummary() }} · nothing is ever deleted</p>
     </div>
   </header>
+
+  <!-- Combinable search + filters: every control ANDs with the others. -->
+  <div class="filter-bar">
+    <label class="filter search-filter">
+      <span>Name</span>
+      <span class="search-box">
+        <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.5-4.5" /></svg>
+        <input
+          class="input search-input"
+          type="text"
+          placeholder="Search by name"
+          [value]="searchInput()"
+          (input)="onSearchInput($any($event.target).value)"
+        />
+        @if (searchInput()) {
+          <button class="search-clear" type="button" aria-label="Clear search" (click)="clearSearch()">
+            <svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        }
+      </span>
+    </label>
+    <label class="filter">
+      <span>From</span>
+      <input class="input" type="date" [value]="dateFrom()" [attr.max]="dateTo() || null" (change)="onDateFromChange($any($event.target).value)" />
+    </label>
+    <label class="filter">
+      <span>To</span>
+      <input class="input" type="date" [value]="dateTo()" [attr.min]="dateFrom() || null" (change)="onDateToChange($any($event.target).value)" />
+    </label>
+    <label class="filter">
+      <span>Source</span>
+      <select class="select" [value]="sourceFilter()" (change)="onSourceFilterChange($any($event.target).value)">
+        <option value="all">All</option>
+        @for (s of sources; track s) {
+          <option [value]="s">{{ SOURCE_LABEL[s] }}</option>
+        }
+      </select>
+    </label>
+    <label class="filter">
+      <span>Contact</span>
+      <select class="select" [value]="methodFilter()" (change)="onMethodFilterChange($any($event.target).value)">
+        <option value="all">All</option>
+        @for (m of contactMethods; track m) {
+          <option [value]="m">{{ CONTACT_METHOD_LABEL[m] }}</option>
+        }
+      </select>
+    </label>
+    <label class="filter">
+      <span>Status</span>
+      <select class="select" [value]="statusFilter()" (change)="onStatusFilterChange($any($event.target).value)">
+        <option value="all">All</option>
+        @for (s of statuses; track s) {
+          <option [value]="s">{{ s }}</option>
+        }
+      </select>
+    </label>
+    <label class="filter">
+      <span>Service</span>
+      <select class="select" [value]="serviceFilter()" (change)="onServiceFilterChange($any($event.target).value)">
+        <option value="all">All</option>
+        @for (s of serviceOptions(); track s) {
+          <option [value]="s">{{ s }}</option>
+        }
+      </select>
+    </label>
+    <label class="filter">
+      <span>Promo</span>
+      <select class="select" [value]="promoFilter()" (change)="onPromoFilterChange($any($event.target).value)">
+        <option value="all">All</option>
+        @for (p of promoOptions(); track p) {
+          <option [value]="p">{{ p }}</option>
+        }
+      </select>
+    </label>
+    @if (anyFilterActive()) {
+      <button class="btn btn-sm clear-filters" type="button" (click)="clearAllFilters()">
+        <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        Clear filters
+      </button>
+    }
+  </div>
 
   <div class="table-wrap">
     <table class="leads-table">
@@ -36,7 +97,6 @@
           <th>Service</th>
           <th>Status</th>
           <th>Last contact</th>
-          <th>Entered by</th>
           <th class="action-col">Action</th>
         </tr>
       </thead>
@@ -53,17 +113,13 @@
             </td>
             <td><span class="tag">{{ SOURCE_LABEL[lead.source] }}</span></td>
             <td>{{ lead.phone }}</td>
-            <td>{{ lead.serviceUsed || (lead.source === 'promo' ? lead.promoName : '—') }}</td>
+            <td>{{ lead.serviceUsed || (lead.source === 'promo' ? lead.promoName : lead.source === 'deal99' ? lead.dealName : '—') }}</td>
             <td>
-              <span class="pill" [style.background]="STATUS_COLOR[lead.status]">{{ lead.status }}</span>
+              <span class="pill" [class]="STATUS_PILL_CLASS[lead.status]">{{ lead.status }}</span>
             </td>
             <td [title]="dateTime(lead.lastContactAt)">
               {{ shortDate(lead.lastContactAt) }}
-              @if (lead.contactedBy) {
-                <span class="cell-sub">by {{ lead.contactedBy }}</span>
-              }
             </td>
-            <td>{{ lead.enteredBy }}</td>
             <td class="action-col">
               @switch (lead.status) {
                 @case ('Responded') {
@@ -88,14 +144,14 @@
           <!-- Trial check-ins detail row -->
           @if (lead.source === 'trial' && expandedId() === lead.id && lead.touchpoints) {
             <tr class="detail-row">
-              <td colspan="8">
+              <td colspan="7">
                 <div class="touchpoints">
                   <span class="touchpoints-label">Trial check-ins</span>
                   @for (key of TRIAL_TOUCHPOINT_ORDER; track key) {
                     <div class="touchpoint" [class.done]="lead.touchpoints[key].done">
                       <span class="tp-name">{{ TRIAL_TOUCHPOINT_LABEL[key] }}</span>
                       @if (lead.touchpoints[key].done) {
-                        <span class="tp-audit"><svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> {{ shortDate(lead.touchpoints[key].at) }} · {{ lead.touchpoints[key].by }}</span>
+                        <span class="tp-audit"><svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> {{ shortDate(lead.touchpoints[key].at) }}</span>
                       } @else {
                         <button class="btn btn-sm" type="button" [disabled]="loading()" (click)="markTouchpoint(lead, key)">Mark done</button>
                       }
@@ -107,7 +163,7 @@
           }
         } @empty {
           <tr>
-            <td class="table-empty" colspan="8">
+            <td class="table-empty" colspan="7">
               {{ loading() ? 'Loading…' : 'No leads match these filters.' }}
             </td>
           </tr>

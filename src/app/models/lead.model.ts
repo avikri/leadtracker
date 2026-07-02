@@ -14,7 +14,7 @@ import { Timestamp } from '@angular/fire/firestore';
  */
 
 /** Where the lead came from. Each source captures a different field set + conversion goal. */
-export type LeadSource = 'new' | 'trial' | 'quiz' | 'promo';
+export type LeadSource = 'new' | 'trial' | 'quiz' | 'promo' | 'deal99';
 
 /**
  * Overall lifecycle. Linear except for the terminal split:
@@ -26,11 +26,10 @@ export type LeadStatus = 'New' | 'Contacted' | 'Responded' | 'Converted' | 'Lost
 /** How this lead is followed up. Quiz leads are CALLED; everyone else is TEXTED. */
 export type ContactMethod = 'text' | 'call';
 
-/** A 7-day-trial touchpoint: independently markable, with audit. */
+/** A 7-day-trial touchpoint: independently markable, timestamped. */
 export interface Touchpoint {
   done: boolean;
   at: Timestamp | null;
-  by: string | null;
 }
 
 /** The three trial check-ins, layered on top of the core status. */
@@ -59,11 +58,9 @@ export interface Lead {
   status: LeadStatus;
   contactMethod: ContactMethod;
 
-  // --- Audit + timestamps (every transition recorded) ---
+  // --- Timestamps (every transition recorded) ---
   createdAt: Timestamp;
-  enteredBy: string;
   contactedAt: Timestamp | null;
-  contactedBy: string | null;
   lastContactAt: Timestamp | null;
   respondedAt: Timestamp | null;
   convertedAt: Timestamp | null;
@@ -80,11 +77,16 @@ export interface Lead {
   // --- Promo-specific (source === 'promo') ---
   promoName?: string | null;
   purchaseDate?: Timestamp | null;
+
+  // --- $99 Deal-specific (source === 'deal99') ---
+  // Mirrors the promo shape (offer purchased + purchase date) but a DISTINCT offer.
+  dealName?: string | null;
+  dealPurchaseDate?: Timestamp | null;
 }
 
 /**
  * Shape used to CREATE a lead. The caller supplies domain fields; the service stamps
- * id, locationId, status='New', timestamps, contactMethod and audit fields.
+ * id, locationId, status='New', timestamps and contactMethod.
  * This is the single ingestion entry point that the Phase 2 importer will also call.
  */
 export type LeadDraft = Pick<Lead, 'source' | 'name' | 'phone'> &
@@ -99,5 +101,7 @@ export type LeadDraft = Pick<Lead, 'source' | 'name' | 'phone'> &
       | 'experienceNotes'
       | 'promoName'
       | 'purchaseDate'
+      | 'dealName'
+      | 'dealPurchaseDate'
     >
   >;

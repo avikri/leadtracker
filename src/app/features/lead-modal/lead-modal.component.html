@@ -41,7 +41,7 @@
           <!-- Email: new/quiz/promo only. Trials are followed up by phone, so no email field. -->
           @if (draft.source !== 'trial') {
             <label>
-              <span class="field-label">Email{{ draft.source === 'promo' ? ' (optional)' : '' }}</span>
+              <span class="field-label">Email{{ draft.source === 'promo' || draft.source === 'deal99' ? ' (optional)' : '' }}</span>
               <input class="input" [(ngModel)]="draft.email" name="email" placeholder="name@example.co.nz" />
             </label>
           }
@@ -94,6 +94,22 @@
               <label>
                 <span class="field-label">Purchase date</span>
                 <input class="input" type="date" [(ngModel)]="draft.purchaseDate" name="purchaseDate" />
+              </label>
+            </div>
+          </div>
+        }
+
+        <!-- $99 DEAL-specific (mirrors PROMO; a distinct $99 intro offer) -->
+        @if (draft.source === 'deal99') {
+          <div class="source-section">
+            <div class="grid-2">
+              <label>
+                <span class="field-label">$99 deal purchased</span>
+                <input class="input" [(ngModel)]="draft.dealName" name="dealName" placeholder="e.g. $99 Intro Pack" />
+              </label>
+              <label>
+                <span class="field-label">Purchase date</span>
+                <input class="input" type="date" [(ngModel)]="draft.dealPurchaseDate" name="dealPurchaseDate" />
               </label>
             </div>
           </div>

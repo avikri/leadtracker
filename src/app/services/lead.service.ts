@@ -22,17 +22,49 @@ import {
 } from '@angular/fire/firestore';
 
 import { environment } from '../../environments/environment';
-import { AuthService } from './auth.service';
-import { Lead, LeadDraft, LeadSource, LeadStatus, TrialTouchpoints } from '../models/lead.model';
-import { TrialTouchpointKey, defaultContactMethod } from '../models/lead.constants';
+import {
+  ContactMethod,
+  Lead,
+  LeadDraft,
+  LeadSource,
+  LeadStatus,
+  TrialTouchpoints,
+} from '../models/lead.model';
+import {
+  TRIAL_TOUCHPOINT_ORDER,
+  TrialTouchpointKey,
+  defaultContactMethod,
+} from '../models/lead.constants';
 
 /** A cursor into the leads collection: the last document snapshot of a fetched page. */
 export type LeadCursor = QueryDocumentSnapshot<DocumentData>;
 
-/** Filters + cursor describing which slice of the "All leads" table to fetch. */
-export interface LeadPageQuery {
+/**
+ * The combinable "All leads" table filters. All are ANDed together.
+ *
+ * How each one runs (see `fetchLeadsPage` for why):
+ *  - source / status / date range → Firestore `where` clauses.
+ *  - search / service / promo / method → client-side predicate (`matchesLeadFilters`)
+ *    applied while filling a page.
+ */
+export interface LeadTableFilters {
   source: LeadSource | 'all';
   status: LeadStatus | 'all';
+  /** Contact method, DERIVED from source (`defaultContactMethod`) — not the stored field. */
+  method: ContactMethod | 'all';
+  /** Case-insensitive substring match on `name`. Empty string = off. */
+  search: string;
+  /** Inclusive `createdAt` bounds. Callers pass local start/end-of-day. Null = unbounded. */
+  createdFrom: Date | null;
+  createdTo: Date | null;
+  /** Exact `serviceUsed` value. */
+  service: string | 'all';
+  /** Exact `promoName` value (promo-source leads only carry one). */
+  promo: string | 'all';
+}
+
+/** Filters + cursor describing which slice of the "All leads" table to fetch. */
+export interface LeadPageQuery extends LeadTableFilters {
   /** Fetch the page immediately AFTER this document; null/omitted fetches page 1. */
   startAfterDoc?: LeadCursor | null;
 }
@@ -40,8 +72,31 @@ export interface LeadPageQuery {
 /** One page of table results plus the cursor needed to page forward from it. */
 export interface LeadPage {
   leads: Lead[];
-  /** Last doc of this page — feed back as `startAfterDoc` for the next page. Null if empty. */
+  /** Last doc scanned for this page — feed back as `startAfterDoc` for the next page. Null if empty. */
   lastDoc: LeadCursor | null;
+  /** Whether another page may exist (false only when the scan provably hit the end). */
+  hasMore: boolean;
+}
+
+/**
+ * The single AND-of-all-filters predicate. Used by `fetchLeadsPage` to post-filter scanned
+ * docs, and by the table's "X of Y" count over the live `leads` signal — one definition so
+ * the page contents and the count can never disagree on what matches.
+ */
+export function matchesLeadFilters(lead: Lead, f: LeadTableFilters): boolean {
+  if (f.source !== 'all' && lead.source !== f.source) return false;
+  if (f.status !== 'all' && lead.status !== f.status) return false;
+  if (f.method !== 'all' && defaultContactMethod(lead.source) !== f.method) return false;
+  if (f.service !== 'all' && lead.serviceUsed !== f.service) return false;
+  if (f.promo !== 'all' && lead.promoName !== f.promo) return false;
+  const term = f.search.trim().toLowerCase();
+  if (term && !lead.name.toLowerCase().includes(term)) return false;
+  // A just-created lead's serverTimestamp is briefly null in latency-compensated
+  // snapshots — treat it as "now" so it passes recency-style date filters.
+  const created = lead.createdAt?.toMillis() ?? Date.now();
+  if (f.createdFrom && created < f.createdFrom.getTime()) return false;
+  if (f.createdTo && created > f.createdTo.getTime()) return false;
+  return true;
 }
 
 /**
@@ -58,7 +113,6 @@ export interface LeadPage {
 @Injectable({ providedIn: 'root' })
 export class LeadService {
   private firestore = inject(Firestore);
-  private auth = inject(AuthService);
 
   private readonly leadsCollection = collection(this.firestore, 'leads');
 
@@ -93,47 +147,130 @@ export class LeadService {
   );
 
   /**
-   * Today's follow-up queue: every lead still at status 'New', OLDEST entered first
-   * (front desk works the backlog top-down).
+   * Today's follow-up queue, most-overdue first (front desk works the backlog top-down).
+   *
+   * Membership rules differ by source:
+   *  - Trial leads are driven by TOUCHPOINTS, not the generic status: a trial belongs in
+   *    the queue whenever it still has an outstanding check-in (firstServiceContact /
+   *    midTrialCheck / finalTrialCall) and the deal isn't already closed
+   *    (Converted/Lost). It therefore resurfaces once per touchpoint, not once total.
+   *  - Every other source keeps the simple rule: still at status 'New'.
+   *
+   * Sort is by "days waiting" descending so the oldest New leads and the most
+   * trial-day-overdue trials float to the top. See `queuePriority`.
    */
   readonly followUpQueue = computed(() =>
     this.leads()
-      .filter((l) => l.status === 'New')
-      .sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis()),
+      .filter((l) => this.inFollowUpQueue(l))
+      .sort((a, b) => this.queuePriority(b) - this.queuePriority(a)),
   );
+
+  /** Whether a lead belongs in today's follow-up queue (see `followUpQueue`). */
+  private inFollowUpQueue(lead: Lead): boolean {
+    if (lead.source === 'trial') {
+      // Closed deals drop out regardless of any remaining touchpoints.
+      if (lead.status === 'Converted' || lead.status === 'Lost') return false;
+      return hasOutstandingTouchpoint(lead);
+    }
+    return lead.status === 'New';
+  }
+
+  /**
+   * Queue sort priority as a "days waiting" number — larger sorts earlier.
+   * New/Quiz/Promo use age since entry (oldest first). Trials use days-into-trial so a
+   * longer-overdue next touchpoint outranks a fresher one.
+   */
+  private queuePriority(lead: Lead): number {
+    return lead.source === 'trial' ? daysIntoTrial(lead) : ageInDays(lead.createdAt);
+  }
 
   // --- Paginated table read ---------------------------------------------------
 
   /**
-   * Fetch one page (`pageSize` docs) of the "All leads" table, filtered by source/status
-   * and ordered by `createdAt` desc, using Firestore cursor pagination.
+   * Fetch one page (`pageSize` matching docs) of the "All leads" table with ALL filters
+   * applied in combination, ordered by `createdAt` desc, using Firestore cursor pagination.
    *
-   * The `source`/`status` filters run as `where` clauses INSIDE the query (not a client
-   * post-filter), so callers must reset to page 1 — i.e. omit `startAfterDoc` — whenever a
-   * filter changes. Shares the same base constraints (locationId + createdAt order) as the
-   * live `leads` query above so query-building isn't duplicated across queue and table.
+   * FIRESTORE CONSTRAINT this is designed around: a query allows a range filter on only ONE
+   * field, and `orderBy` must be that field. `createdAt` keeps that slot permanently — the
+   * date-range filter is a true server-side `where` riding the same composite indexes the
+   * table already uses (locationId [+source] [+status] + createdAt). Name search is therefore
+   * NEVER a Firestore range filter (no `nameLower` startAt/endAt): it runs client-side as a
+   * substring match, which is more useful than prefix anyway ("chen" finds "Sarah Chen").
+   * Service/promo run client-side too — server-side equality on them would need a composite
+   * index per filter combination.
    *
-   * Returns the page's leads plus its tail cursor (`lastDoc`); a full page (`leads.length
-   * === pageSize`) means more may exist. No `count()` is issued — we don't need an exact total.
+   * Client-side filters mean a raw Firestore page can thin out, so the page is FILLED by
+   * scanning `createdAt`-ordered batches through `matchesLeadFilters` until `pageSize` match
+   * or the collection ends (capped at `MAX_SCAN_PER_PAGE` docs — at studio scale the cap is
+   * effectively never hit). `lastDoc` is the resume point for the next page.
+   *
+   * Filters run inside the fetch (not as a post-filter over a fixed page), so callers must
+   * reset to page 1 — i.e. omit `startAfterDoc` — whenever any filter changes. No `count()`
+   * is issued; `hasMore` says whether paging forward makes sense.
    */
   async fetchLeadsPage(opts: LeadPageQuery): Promise<LeadPage> {
-    const constraints: QueryConstraint[] = [where('locationId', '==', this.locationId)];
-    if (opts.source !== 'all') constraints.push(where('source', '==', opts.source));
-    if (opts.status !== 'all') constraints.push(where('status', '==', opts.status));
-    constraints.push(orderBy('createdAt', 'desc'));
-    if (opts.startAfterDoc) constraints.push(startAfter(opts.startAfterDoc));
-    constraints.push(limit(this.pageSize));
+    const base: QueryConstraint[] = [where('locationId', '==', this.locationId)];
+    if (opts.source !== 'all') base.push(where('source', '==', opts.source));
+    if (opts.status !== 'all') base.push(where('status', '==', opts.status));
+    if (opts.createdFrom) base.push(where('createdAt', '>=', Timestamp.fromDate(opts.createdFrom)));
+    if (opts.createdTo) base.push(where('createdAt', '<=', Timestamp.fromDate(opts.createdTo)));
+    base.push(orderBy('createdAt', 'desc'));
 
-    const snap = await getDocs(query(this.leadsCollection, ...constraints));
-    const leads = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Lead);
-    const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
-    return { leads, lastDoc };
+    // Only over-fetch when a client-side filter can actually thin the batch. A method
+    // filter can't thin it when source is pinned (method is derived from source).
+    const scanning =
+      opts.search.trim() !== '' ||
+      opts.service !== 'all' ||
+      opts.promo !== 'all' ||
+      (opts.method !== 'all' && opts.source === 'all');
+    const batchSize = scanning ? SCAN_BATCH_SIZE : this.pageSize;
+
+    const leads: Lead[] = [];
+    let cursor: LeadCursor | null = opts.startAfterDoc ?? null;
+    let lastDoc: LeadCursor | null = null;
+    let hasMore = false;
+    let scanned = 0;
+
+    pageFill: while (true) {
+      const constraints = [...base];
+      if (cursor) constraints.push(startAfter(cursor));
+      constraints.push(limit(batchSize));
+      const snap = await getDocs(query(this.leadsCollection, ...constraints));
+      scanned += snap.docs.length;
+
+      for (const d of snap.docs) {
+        const lead = { id: d.id, ...d.data() } as Lead;
+        if (!matchesLeadFilters(lead, opts)) continue;
+        if (leads.length === this.pageSize) {
+          hasMore = true; // found a (pageSize+1)th match — a next page definitely exists
+          break pageFill;
+        }
+        leads.push(lead);
+        lastDoc = d;
+      }
+
+      if (snap.docs.length < batchSize) break; // collection exhausted → hasMore stays false
+      cursor = snap.docs[snap.docs.length - 1];
+      if (leads.length === this.pageSize) {
+        hasMore = true; // page full and more docs exist behind it — more MAY match
+        break;
+      }
+      if (scanned >= MAX_SCAN_PER_PAGE) {
+        // Give up scanning for this page; resume AFTER the scanned region (everything
+        // between the last match and here was checked and didn't match).
+        lastDoc = cursor;
+        hasMore = true;
+        break;
+      }
+    }
+
+    return { leads, lastDoc, hasMore };
   }
 
   // --- Create -----------------------------------------------------------------
 
   /**
-   * Single ingestion entry point. Stamps audit fields, status='New', source-correct
+   * Single ingestion entry point. Stamps timestamps, status='New', source-correct
    * contactMethod, and (for trials) the empty touchpoint scaffold.
    *
    * TODO: Phase 2 ingestion — the Mindbody (new clients & trials) and ScoreApp (quiz)
@@ -154,9 +291,7 @@ export class LeadService {
       contactMethod: defaultContactMethod(draft.source),
 
       createdAt: now,
-      enteredBy: this.auth.currentUserName(),
       contactedAt: null,
-      contactedBy: null,
       lastContactAt: null,
       respondedAt: null,
       convertedAt: null,
@@ -172,14 +307,14 @@ export class LeadService {
 
   // --- Edit -------------------------------------------------------------------
 
-  /** Patch arbitrary shared/source fields. Audit + status flow go through the methods below. */
+  /** Patch arbitrary shared/source fields. Status flow goes through the methods below. */
   async updateLead(id: string, patch: Partial<Lead>): Promise<void> {
     await updateDoc(this.docRef(id), patch as unknown as UpdateData<DocumentData>);
   }
 
   /**
    * Changing the source is a first-class action. Shared fields (name, phone, email,
-   * status, audit) are preserved; the conditional field set is swapped and contactMethod
+   * status, timestamps) are preserved; the conditional field set is swapped and contactMethod
    * is recomputed. Fields the new source doesn't use are nulled rather than left stale.
    */
   async changeSource(id: string, current: Lead, newSource: LeadSource): Promise<void> {
@@ -192,6 +327,8 @@ export class LeadService {
       touchpoints: null,
       promoName: null,
       purchaseDate: null,
+      dealName: null,
+      dealPurchaseDate: null,
     };
 
     await updateDoc(this.docRef(id), {
@@ -212,7 +349,6 @@ export class LeadService {
     await updateDoc(this.docRef(lead.id), {
       status: 'Contacted',
       contactedAt: lead.contactedAt ?? now, // keep first-contact time if already set
-      contactedBy: lead.contactedBy ?? this.auth.currentUserName(),
       lastContactAt: now,
     });
   }
@@ -248,12 +384,12 @@ export class LeadService {
 
   // --- Trial touchpoints ------------------------------------------------------
 
-  /** Mark one of the three trial check-ins done, with audit. */
+  /** Mark one of the three trial check-ins done, timestamped. */
   async markTouchpoint(lead: Lead, key: TrialTouchpointKey): Promise<void> {
     const existing = lead.touchpoints ?? emptyTouchpoints();
     const next: TrialTouchpoints = {
       ...existing,
-      [key]: { done: true, at: Timestamp.now(), by: this.auth.currentUserName() },
+      [key]: { done: true, at: Timestamp.now() },
     };
     await updateDoc(this.docRef(lead.id), {
       touchpoints: next,
@@ -282,6 +418,11 @@ export class LeadService {
           promoName: src.promoName ?? null,
           purchaseDate: src.purchaseDate ?? null,
         };
+      case 'deal99':
+        return {
+          dealName: src.dealName ?? null,
+          dealPurchaseDate: src.dealPurchaseDate ?? null,
+        };
       // 'new' and 'quiz' only use shared fields.
       default:
         return {};
@@ -289,9 +430,32 @@ export class LeadService {
   }
 }
 
+const MS_PER_DAY = 86_400_000;
+
+/** Raw docs fetched per round trip while filling a client-filtered page. */
+const SCAN_BATCH_SIZE = 100;
+/** Hard cap on raw docs scanned for ONE page, so a no-match search can't read unbounded. */
+const MAX_SCAN_PER_PAGE = 500;
+
+/** True if a trial lead still has at least one incomplete touchpoint. */
+function hasOutstandingTouchpoint(lead: Lead): boolean {
+  const tp = lead.touchpoints ?? emptyTouchpoints();
+  return TRIAL_TOUCHPOINT_ORDER.some((k) => !tp[k].done);
+}
+
+/** Whole/fractional days since a timestamp. */
+function ageInDays(ts: Timestamp): number {
+  return (Date.now() - ts.toMillis()) / MS_PER_DAY;
+}
+
+/** How far into the 7-day trial: the recorded trialDay if set, else derived from entry age. */
+function daysIntoTrial(lead: Lead): number {
+  return typeof lead.trialDay === 'number' ? lead.trialDay : ageInDays(lead.createdAt);
+}
+
 /** Fresh, all-undone trial touchpoint scaffold. */
 export function emptyTouchpoints(): TrialTouchpoints {
-  const blank = { done: false, at: null, by: null };
+  const blank = { done: false, at: null };
   return {
     firstServiceContact: { ...blank },
     midTrialCheck: { ...blank },

@@ -2,10 +2,32 @@
   <header class="panel-head">
     <div>
       <h2>To contact today</h2>
-      <p class="panel-sub">New leads, oldest first. Quiz leads are called; everyone else texted.</p>
+      <p class="panel-sub">New leads and trials with an open check-in, most overdue first. Quiz leads are called; everyone else texted.</p>
     </div>
     <span class="count-badge">{{ queue().length }}</span>
   </header>
+
+  <!-- Queue-only filters — independent of the All-leads table's filter state. -->
+  <div class="filter-bar">
+    <label class="filter">
+      <span>Source</span>
+      <select class="select" [value]="sourceFilter()" (change)="sourceFilter.set($any($event.target).value)">
+        <option value="all">All</option>
+        @for (s of sources; track s) {
+          <option [value]="s">{{ SOURCE_LABEL[s] }}</option>
+        }
+      </select>
+    </label>
+    <label class="filter">
+      <span>Contact</span>
+      <select class="select" [value]="methodFilter()" (change)="methodFilter.set($any($event.target).value)">
+        <option value="all">All</option>
+        @for (m of contactMethods; track m) {
+          <option [value]="m">{{ CONTACT_METHOD_LABEL[m] }}</option>
+        }
+      </select>
+    </label>
+  </div>
 
   @if (queue().length === 0) {
     <p class="empty">
@@ -13,7 +35,11 @@
         <circle cx="12" cy="12" r="9" />
         <path d="M8.5 12.5l2.5 2.5 4.5-5" />
       </svg>
-      Queue clear — every new lead has been contacted.
+      @if (anyFilterActive()) {
+        No one waiting matches these filters — clear them to see the full queue.
+      } @else {
+        Queue clear — every new lead has been contacted.
+      }
     </p>
   } @else {
     <div class="queue-grid">
@@ -33,15 +59,23 @@
           @if (lead.source === 'promo' && lead.promoName) {
             <div class="queue-meta">Promo: {{ lead.promoName }}</div>
           }
+          @if (lead.source === 'deal99' && lead.dealName) {
+            <div class="queue-meta">$99 deal: {{ lead.dealName }}</div>
+          }
           @if (lead.source === 'trial') {
             <div class="queue-meta">Next: {{ nextTouchpoint(lead) }}</div>
           }
 
           <div class="queue-foot">
-            <span class="queue-by">Entered by {{ lead.enteredBy }}</span>
-            <button class="btn btn-primary btn-sm" type="button" (click)="markContacted(lead)">
-              {{ contactActionLabel(lead.contactMethod) }}
-            </button>
+            @if (lead.source === 'trial') {
+              <button class="btn btn-primary btn-sm" type="button" (click)="markTouchpoint(lead)">
+                {{ touchpointActionLabel(lead) }}
+              </button>
+            } @else {
+              <button class="btn btn-primary btn-sm" type="button" (click)="markContacted(lead)">
+                {{ contactActionLabel(lead.contactMethod) }}
+              </button>
+            }
           </div>
         </article>
       }

@@ -5,9 +5,9 @@ import { toSignal } from '@angular/core/rxjs-interop';
 /**
  * Thin wrapper over Firebase Auth (email/password).
  *
- * Baseline scope: enough to identify "who is at the front desk" for audit fields and
- * to back a real auth guard later. The guard is a pass-through until environment.requireAuth
- * is flipped on (see auth.guard.ts). Build the /login screen against login()/logout() next.
+ * Baseline scope: enough to gate the app behind a login and show who's signed in.
+ * The guard is a pass-through until environment.requireAuth is flipped on (see
+ * auth.guard.ts). Build the /login screen against login()/logout() next.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -19,7 +19,7 @@ export class AuthService {
   readonly isAuthenticated = computed(() => this.user() !== null);
 
   /**
-   * Display name used to stamp audit fields (enteredBy / contactedBy / touchpoint.by).
+   * Display name shown in the dashboard top bar.
    * Falls back to a generic label so the baseline works before real users exist.
    */
   readonly currentUserName = computed(

@@ -1,5 +1,5 @@
 // Generates 50 realistic-but-fake leads for the Auckland studio, spread across all
-// four sources and every status, with audit timestamps that stay internally consistent
+// five sources and every status, with audit timestamps that stay internally consistent
 // (contacted <= responded <= converted, all in the past). Numbers are in the safe
 // fictional NZ 555-01xx range, so nobody real is ever contacted.
 //
@@ -36,19 +36,20 @@ const LAST = [
   'Pita', 'Robertson', 'Iosefa', 'Green', 'Mahuta', 'Singh', 'Taylor', 'Rangi',
 ];
 
-const STAFF = ['Priya', 'Sam', 'Manaaki', 'Aroha', 'Josh'];
 const SERVICES = ['Reformer Pilates', 'Infrared Sauna', 'Group Fitness', 'Recovery Studio'];
 const PROMOS = ['3-Week Floats', 'Summer Sauna Pass', 'New Year Reset', 'Bring-a-Friend', 'Winter Warm-Up'];
+const DEALS = ['$99 Intro Pack', '$99 5-Class Deal', '$99 Starter Month', '$99 Reformer Intro'];
 
 const CONVERSION = {
   new: ['Returned / re-booked', 'Bought a casual 10-pack', 'Signed up to weekly classes'],
   trial: ['Bought a membership — 12-month', 'Bought a membership — monthly', 'Upgraded to unlimited'],
   quiz: ['Booked a visit / came in', 'Booked an intro sauna session', 'Came in, booked a class'],
   promo: ['Bought a 10-class pack', 'Converted to monthly membership', 'Bought a sauna pack'],
+  deal99: ['Bought a 10-class pack', 'Converted to monthly membership', 'Upgraded to unlimited'],
 };
 
 // How many of each source (sums to 50).
-const SOURCE_PLAN = { new: 14, trial: 12, quiz: 12, promo: 12 };
+const SOURCE_PLAN = { new: 12, trial: 10, quiz: 10, promo: 9, deal99: 9 };
 
 // Status mix per source — weights, not counts.
 const STATUS_WEIGHTS = {
@@ -56,6 +57,7 @@ const STATUS_WEIGHTS = {
   trial: [['New', 3], ['Contacted', 3], ['Responded', 2], ['Converted', 3], ['Lost', 1]],
   quiz: [['New', 4], ['Contacted', 3], ['Responded', 2], ['Converted', 1], ['Lost', 2]],
   promo: [['New', 3], ['Contacted', 3], ['Responded', 2], ['Converted', 3], ['Lost', 1]],
+  deal99: [['New', 3], ['Contacted', 3], ['Responded', 2], ['Converted', 3], ['Lost', 1]],
 };
 
 // Age (days-ago range for createdAt) by status, so forward-dated audit stamps stay in the past.
@@ -96,9 +98,9 @@ export function buildSeedLeads(Timestamp) {
   }
 
   const emptyTouchpoints = () => ({
-    firstServiceContact: { done: false, at: null, by: null },
-    midTrialCheck: { done: false, at: null, by: null },
-    finalTrialCall: { done: false, at: null, by: null },
+    firstServiceContact: { done: false, at: null },
+    midTrialCheck: { done: false, at: null },
+    finalTrialCall: { done: false, at: null },
   });
 
   const leads = [];
@@ -109,7 +111,6 @@ export function buildSeedLeads(Timestamp) {
       const { f, l } = names[idx++];
       const status = weightedStatus(source);
       const createdDays = between(AGE_BY_STATUS[status]);
-      const staff = pick(STAFF);
       const contactMethod = source === 'quiz' ? 'call' : 'text';
 
       // Forward timeline (days-ago decreasing = later in time), clamped to the past.
@@ -154,9 +155,7 @@ export function buildSeedLeads(Timestamp) {
         contactMethod,
 
         createdAt: ago(createdDays),
-        enteredBy: staff,
         contactedAt: has.contacted ? ago(contactedDays) : null,
-        contactedBy: has.contacted ? staff : null,
         lastContactAt: lastContactDays === null ? null : ago(lastContactDays),
         respondedAt: has.responded ? ago(respondedDays) : null,
         convertedAt: has.converted ? ago(convertedDays) : null,
@@ -165,11 +164,15 @@ export function buildSeedLeads(Timestamp) {
       };
 
       if (source === 'trial') {
-        Object.assign(doc, buildTrial(status, staff, ago, contactedDays, respondedDays, convertedDays, emptyTouchpoints, rand));
+        Object.assign(doc, buildTrial(status, ago, contactedDays, respondedDays, convertedDays, emptyTouchpoints, rand));
       }
       if (source === 'promo') {
         doc.promoName = pick(PROMOS);
         doc.purchaseDate = ago(createdDays + between([1, 6]));
+      }
+      if (source === 'deal99') {
+        doc.dealName = pick(DEALS);
+        doc.dealPurchaseDate = ago(createdDays + between([1, 6]));
       }
 
       leads.push(doc);
@@ -185,14 +188,15 @@ function sourceNote(source, pick) {
     trial: ['Signed up at the desk.', 'Keen on the classes + sauna combo.', 'Enjoying it, a bit sore.', 'Loved the community.'],
     quiz: ['Quiz: stress / recovery focus.', 'Quiz: strength goals. Left voicemail.', 'Quiz: flexibility, keen to come in.', 'Quiz lead, follow up by phone.'],
     promo: ['Campaign buyer, follow up to upsell a pack.', 'Summer pass purchaser.', 'Bought the floats campaign.', 'Promo buyer, upsell after campaign.'],
+    deal99: ['Grabbed the $99 intro deal, upsell to a pack.', '$99 deal buyer, follow up on membership.', 'Bought the $99 intro, keen for more.', '$99 deal, upgrade after a few classes.'],
   };
   return pick(notes[source]);
 }
 
-function buildTrial(status, staff, ago, contactedDays, respondedDays, convertedDays, emptyTouchpoints, rand) {
+function buildTrial(status, ago, contactedDays, respondedDays, convertedDays, emptyTouchpoints, rand) {
   const tp = emptyTouchpoints();
   // Touchpoint progress tracks how far the lead has moved.
-  const done = (days) => ({ done: true, at: ago(days), by: staff });
+  const done = (days) => ({ done: true, at: ago(days) });
 
   let stage = 'Day 1';
   let trialDay = 1;

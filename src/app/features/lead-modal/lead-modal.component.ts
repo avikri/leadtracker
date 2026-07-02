@@ -121,7 +121,7 @@ export class LeadModalComponent {
 
   private sharedPatch(): Partial<Lead> {
     // Mirror the form's per-source field visibility so hidden fields aren't persisted stale:
-    // trials capture no email; quiz/promo capture no service used.
+    // trials capture no email; quiz/promo/$99-deals capture no service used.
     const usesEmail = this.draft.source !== 'trial';
     const usesService = this.draft.source === 'new' || this.draft.source === 'trial';
     return {
@@ -146,6 +146,11 @@ export class LeadModalComponent {
         return {
           promoName: this.draft.promoName.trim() || null,
           purchaseDate: parseDate(this.draft.purchaseDate),
+        };
+      case 'deal99':
+        return {
+          dealName: this.draft.dealName.trim() || null,
+          dealPurchaseDate: parseDate(this.draft.dealPurchaseDate),
         };
       default:
         return {};
@@ -182,6 +187,8 @@ interface DraftForm {
   experienceNotes: string;
   promoName: string;
   purchaseDate: string; // YYYY-MM-DD
+  dealName: string;
+  dealPurchaseDate: string; // YYYY-MM-DD
 }
 
 function blankDraft(): DraftForm {
@@ -197,6 +204,8 @@ function blankDraft(): DraftForm {
     experienceNotes: '',
     promoName: '',
     purchaseDate: '',
+    dealName: '',
+    dealPurchaseDate: '',
   };
 }
 
@@ -213,6 +222,8 @@ function toDraft(l: Lead): DraftForm {
     experienceNotes: l.experienceNotes ?? '',
     promoName: l.promoName ?? '',
     purchaseDate: dateInputValue(l.purchaseDate ?? null),
+    dealName: l.dealName ?? '',
+    dealPurchaseDate: dateInputValue(l.dealPurchaseDate ?? null),
   };
 }
 

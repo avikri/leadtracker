@@ -59,12 +59,12 @@ and call its mutation methods. That's the one seam to extend.
 ### Data model (single `leads` collection)
 
 - **Shared:** `id`, `locationId`, `source`, `name`, `phone`, `email`, `serviceUsed`, `notes`,
-  `createdAt`, `enteredBy`.
+  `createdAt`.
 - **Follow-up:** `status` (`New → Contacted → Responded → Converted | Lost`), `contactMethod`
   (`text` | `call`), and a timestamp for every transition (`contactedAt`, `respondedAt`,
-  `convertedAt`, `lostAt`, `lastContactAt`) plus `conversionOutcome`, `contactedBy`.
+  `convertedAt`, `lostAt`, `lastContactAt`) plus `conversionOutcome`.
 - **Trial-only:** `trialStage` / `trialDay`, `experienceNotes`, and `touchpoints`
-  (`firstServiceContact`, `midTrialCheck`, `finalTrialCall`), each `{ done, at, by }`.
+  (`firstServiceContact`, `midTrialCheck`, `finalTrialCall`), each `{ done, at }`.
 - **Promo-only:** `promoName`, `purchaseDate`.
 
 ### Behaviours baked in (and where)

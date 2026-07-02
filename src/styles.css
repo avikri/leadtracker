@@ -1,12 +1,52 @@
+/* Self-hosted brand fonts (latin subset). Inter is a variable font — one file
+   covers every weight we use. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('assets/fonts/inter-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Archivo Black';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('assets/fonts/archivo-black-latin.woff2') format('woff2');
+}
+
 :root {
-  --bg: #f6f6f4;
+  /* --- O-Studio brand palette (from brand guidelines) --- */
+  /* Forest (primary green) */
+  --brand-forest-1: #49675b;
+  --brand-forest-2: #6d847a;
+  --brand-forest-3: #b4c0bc;
+  --brand-forest-4: #d9dfdd;
+  /* Clay (primary red) */
+  --brand-clay-1: #a5473b;
+  --brand-clay-2: #ad6e65;
+  --brand-clay-3: #d2b5af;
+  --brand-clay-4: #e8d8d8;
+  /* Tussock (primary gold) */
+  --brand-tussock-1: #a28b3b;
+  --brand-tussock-2: #aea174;
+  --brand-tussock-3: #d6ceb7;
+  --brand-tussock-4: #e9e5d9;
+  /* Darkened tussock for text on tussock tints — tussock-1 fails WCAG AA there. */
+  --brand-tussock-ink: #5f5222;
+  /* Neutral */
+  --brand-cream: #ebe7d9;
+
+  /* --- App greyscale (structure: borders, dividers, secondary text) --- */
+  --bg: var(--brand-cream);
   --surface: #ffffff;
   --border: #e3e3df;
   --border-strong: #d2d2cc;
   --ink: #1c1c1a;
   --ink-soft: #5b5b56;
   --ink-faint: #8a8a83;
-  --accent: #1c1c1a;
+  --accent: var(--brand-forest-1);
+  --accent-hover: #3e584d; /* forest-1 mixed ~15% black */
   --radius: 10px;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 8px rgba(0, 0, 0, 0.03);
 }
@@ -21,7 +61,7 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.45;
 }
@@ -38,8 +78,14 @@ textarea {
   color: var(--ink);
 }
 
+/* Archivo Black is display-only: h1/h2 section headers, nowhere small/dense. */
 h1,
-h2,
+h2 {
+  margin: 0;
+  font-family: 'Archivo Black', 'Inter', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
 h3 {
   margin: 0;
   font-weight: 600;
@@ -65,9 +111,11 @@ h3 {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  font-weight: 700;
 }
 .btn-primary:hover {
-  background: #000;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 .btn-sm {
   padding: 5px 10px;
@@ -78,14 +126,18 @@ h3 {
   cursor: not-allowed;
 }
 .btn-danger {
-  color: #b91c1c;
-  border-color: #e6c9c9;
+  color: var(--brand-clay-1);
+  border-color: var(--brand-clay-3);
 }
 .btn-danger:hover {
-  border-color: #b91c1c;
+  border-color: var(--brand-clay-1);
 }
 
-/* --- Status pill --- */
+/* --- Status pill ---
+   Brand mapping: neutral for "nothing happened" states, forest tint for
+   contacted, tussock tint for responded, solid forest for the win state.
+   Text/background pairs are WCAG AA checked — don't swap text colours
+   without re-checking contrast. */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -93,8 +145,28 @@ h3 {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  color: #fff;
   white-space: nowrap;
+}
+.pill-new {
+  background: #efefea;
+  color: var(--ink-soft);
+}
+.pill-contacted {
+  background: var(--brand-forest-4);
+  color: var(--brand-forest-1);
+}
+.pill-responded {
+  background: var(--brand-tussock-3);
+  color: var(--brand-tussock-ink);
+}
+.pill-converted {
+  background: var(--brand-forest-1);
+  color: #fff;
+}
+.pill-lost {
+  background: #efefea;
+  color: var(--ink-soft);
+  text-decoration: line-through;
 }
 
 /* --- Source tag --- */
@@ -129,7 +201,7 @@ h3 {
 .input:focus,
 .select:focus,
 .textarea:focus {
-  outline: 2px solid #c9c9c2;
+  outline: 2px solid var(--brand-forest-1);
   outline-offset: -1px;
 }
 .textarea {
@@ -205,7 +277,7 @@ h3 {
 .login-error {
   margin: 0;
   font-size: 13px;
-  color: #b91c1c;
+  color: var(--brand-clay-1);
 }
 .login-submit {
   justify-content: center;
@@ -251,7 +323,7 @@ h3 {
   height: 26px;
   padding: 0 8px;
   border-radius: 999px;
-  background: var(--ink);
+  background: var(--brand-forest-1);
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -317,13 +389,9 @@ h3 {
 .queue-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
-}
-.queue-by {
-  font-size: 11px;
-  color: var(--ink-faint);
 }
 
 /* ============================ Table ============================ */
@@ -342,6 +410,64 @@ h3 {
   padding: 5px 8px;
   font-size: 13px;
 }
+
+/* Combined search + filter bar above the All-leads table. */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+  padding: 12px 13px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fbfbfa;
+}
+.filter-bar .filter .input {
+  padding: 5px 8px;
+  font-size: 13px;
+  width: auto;
+}
+.search-filter {
+  min-width: 200px;
+}
+.search-box {
+  position: relative;
+  display: block;
+}
+.search-box > .icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+.filter-bar .search-input {
+  width: 100%;
+  padding-left: 29px;
+  padding-right: 26px;
+}
+.search-clear {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border: none;
+  background: none;
+  color: var(--ink-faint);
+}
+.search-clear:hover {
+  color: var(--ink);
+}
+.clear-filters {
+  margin-left: auto;
+  color: var(--ink-soft);
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -391,7 +517,7 @@ h3 {
   background: none;
   padding: 0;
   font-size: 11px;
-  color: #1d4ed8;
+  color: var(--brand-forest-1);
   cursor: pointer;
 }
 .action-pair {
@@ -401,15 +527,10 @@ h3 {
 }
 .terminal {
   font-size: 12px;
-  color: #15803d;
+  color: var(--brand-forest-1);
   font-variant-numeric: tabular-nums;
 }
 .terminal.muted {
-  color: var(--ink-faint);
-}
-.cell-sub {
-  display: block;
-  font-size: 11px;
   color: var(--ink-faint);
 }
 
@@ -441,8 +562,8 @@ h3 {
   background: #fff;
 }
 .touchpoint.done {
-  border-color: #cfe3d4;
-  background: #f3f9f4;
+  border-color: var(--brand-forest-3);
+  background: var(--brand-forest-4);
 }
 .tp-name {
   font-size: 12px;
@@ -450,7 +571,7 @@ h3 {
 }
 .tp-audit {
   font-size: 11px;
-  color: #15803d;
+  color: var(--brand-forest-1);
 }
 
 /* Empty-state + pagination for the All-leads table */
@@ -554,8 +675,8 @@ h3 {
   font-weight: 500;
 }
 .source-chip.active {
-  background: var(--ink);
-  border-color: var(--ink);
+  background: var(--brand-forest-1);
+  border-color: var(--brand-forest-1);
   color: #fff;
 }
 .source-section {

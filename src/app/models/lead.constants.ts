@@ -2,7 +2,7 @@ import { ContactMethod, LeadSource, LeadStatus } from './lead.model';
 
 /** Human-readable labels + small bits of source/status logic, kept in one place. */
 
-export const LEAD_SOURCES: LeadSource[] = ['new', 'trial', 'quiz', 'promo'];
+export const LEAD_SOURCES: LeadSource[] = ['new', 'trial', 'quiz', 'promo', 'deal99'];
 
 export const LEAD_STATUSES: LeadStatus[] = [
   'New',
@@ -17,6 +17,7 @@ export const SOURCE_LABEL: Record<LeadSource, string> = {
   trial: '7-day trial',
   quiz: 'Quiz lead',
   promo: 'Promo',
+  deal99: '$99 Deals',
 };
 
 /** What "follow up" is trying to achieve, per source. Shown as helper text. */
@@ -25,6 +26,7 @@ export const SOURCE_GOAL: Record<LeadSource, string> = {
   trial: 'Convert to a membership',
   quiz: 'Get them in the door — book a visit',
   promo: 'Convert to a pack or membership',
+  deal99: 'Convert to a pack or membership',
 };
 
 /**
@@ -34,6 +36,13 @@ export const SOURCE_GOAL: Record<LeadSource, string> = {
 export function defaultContactMethod(source: LeadSource): ContactMethod {
   return source === 'quiz' ? 'call' : 'text';
 }
+
+export const CONTACT_METHODS: ContactMethod[] = ['text', 'call'];
+
+export const CONTACT_METHOD_LABEL: Record<ContactMethod, string> = {
+  text: 'Text',
+  call: 'Call',
+};
 
 /** Verb used on the "advance from New" action + queue label, e.g. "Mark texted". */
 export function contactActionLabel(method: ContactMethod): string {
@@ -50,14 +59,16 @@ export const CONVERSION_PROMPT: Record<LeadSource, string> = {
   trial: 'Bought a membership',
   quiz: 'Booked a visit / came in',
   promo: 'Bought a pack or membership',
+  deal99: 'Bought a pack or membership',
 };
 
-export const STATUS_COLOR: Record<LeadStatus, string> = {
-  New: '#b45309', // amber
-  Contacted: '#1d4ed8', // blue
-  Responded: '#7c3aed', // violet
-  Converted: '#15803d', // green
-  Lost: '#6b7280', // grey
+/** Maps status → pill class; colours live in styles.css next to the brand tokens. */
+export const STATUS_PILL_CLASS: Record<LeadStatus, string> = {
+  New: 'pill-new',
+  Contacted: 'pill-contacted',
+  Responded: 'pill-responded',
+  Converted: 'pill-converted',
+  Lost: 'pill-lost',
 };
 
 export const TRIAL_TOUCHPOINT_LABEL: Record<string, string> = {
@@ -73,3 +84,10 @@ export const TRIAL_TOUCHPOINT_ORDER = [
   'finalTrialCall',
 ] as const;
 export type TrialTouchpointKey = (typeof TRIAL_TOUCHPOINT_ORDER)[number];
+
+/** Queue action button verb for marking a specific trial touchpoint done. */
+export const TRIAL_TOUCHPOINT_ACTION_LABEL: Record<TrialTouchpointKey, string> = {
+  firstServiceContact: 'Mark first contact done',
+  midTrialCheck: 'Mark mid-trial check done',
+  finalTrialCall: 'Mark final call done',
+};
