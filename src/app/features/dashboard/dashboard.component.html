@@ -1,21 +1,21 @@
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none" />
-      </svg>
+      @if (logoUrl(); as url) {
+        @if (!logoFailed()) {
+          <img class="brand-logo" [src]="url" [alt]="orgName()" (error)="onLogoError()" />
+        }
+      }
+      @if (!logoUrl() || logoFailed()) {
+        <svg class="brand-mark-fallback" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none" />
+        </svg>
+      }
     </span>
-    <div>
-      <h1>Front Desk · Leads</h1>
-      <span class="brand-sub">Lead tracker</span>
-    </div>
   </div>
   <div class="topbar-actions">
     <!-- Roadmap placeholder: Phase 2 pulls leads from Mindbody + ScoreApp automatically. -->
-    <button class="btn" type="button" disabled title="Coming soon — automatic import from Mindbody & ScoreApp">
-      Auto-import (coming soon)
-    </button>
     <button class="btn btn-primary" type="button" (click)="openAdd()">+ Add lead</button>
     @if (requireAuth) {
       <span class="topbar-user" title="Signed in">{{ userName() }}</span>

@@ -1,11 +1,13 @@
-// Generates 50 realistic-but-fake leads for the Auckland studio, spread across all
+// Generates 50 realistic-but-fake leads for O Studio Remuera, spread across all
 // five sources and every status, with audit timestamps that stay internally consistent
 // (contacted <= responded <= converted, all in the past). Numbers are in the safe
 // fictional NZ 555-01xx range, so nobody real is ever contacted.
 //
 // Every doc carries `seeded: true` + `seedTag` so cleanup-seed.mjs can remove them.
+// `organizationId` is NOT set here — seed-prod.mjs stamps it after resolving the org
+// from the live `organizations` collection.
 
-import { LOCATION_ID, SEED_TAG } from './_admin.mjs';
+import { SEED_TAG } from './_admin.mjs';
 
 const DAY = 86_400_000;
 
@@ -140,7 +142,6 @@ export function buildSeedLeads(Timestamp) {
             : null;
 
       const doc = {
-        locationId: LOCATION_ID,
         seeded: true,
         seedTag: SEED_TAG,
 

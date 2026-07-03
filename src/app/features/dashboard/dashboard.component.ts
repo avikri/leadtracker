@@ -1,4 +1,4 @@
-import { Component, ViewChild, inject, signal } from '@angular/core';
+import { Component, ViewChild, computed, inject, linkedSignal, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { FollowUpQueueComponent } from '../queue/follow-up-queue.component';
@@ -6,6 +6,7 @@ import { LeadsTableComponent } from '../leads-table/leads-table.component';
 import { LeadModalComponent } from '../lead-modal/lead-modal.component';
 import { Lead } from '../../models/lead.model';
 import { AuthService } from '../../services/auth.service';
+import { OrgService } from '../../services/org.service';
 import { environment } from '../../../environments/environment';
 
 /**
@@ -20,6 +21,7 @@ import { environment } from '../../../environments/environment';
 })
 export class DashboardComponent {
   private auth = inject(AuthService);
+  private org = inject(OrgService);
   private router = inject(Router);
 
   /**
@@ -32,8 +34,22 @@ export class DashboardComponent {
   readonly requireAuth = environment.requireAuth;
   readonly userName = this.auth.currentUserName;
 
+  /** Org brand logo (assets/{slug}/logo.jpg), or null → generic SVG mark. */
+  readonly logoUrl = this.org.logoUrl;
+  readonly orgName = computed(() => this.org.organization()?.name ?? 'Front Desk');
+  /**
+   * Set when the logo file fails to load (org has a slug but no logo.jpg deployed yet) so we
+   * fall back to the SVG mark. Resets automatically whenever logoUrl changes, so a failure on
+   * one URL doesn't permanently suppress a later, valid one.
+   */
+  readonly logoFailed = linkedSignal({ source: this.logoUrl, computation: () => false });
+
   readonly modalOpen = signal(false);
   readonly editingLead = signal<Lead | null>(null);
+
+  onLogoError(): void {
+    this.logoFailed.set(true);
+  }
 
   async logout(): Promise<void> {
     await this.auth.logout();

@@ -231,8 +231,19 @@ h3 {
   display: inline-flex;
   color: var(--accent);
 }
-.brand h1 {
-  font-size: 16px;
+.brand-logo {
+  width: 11vw;
+  max-width: 140px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+/* Fallback mark is square, so it's sized by height rather than the
+   wordmark's 33vw width — a full-width square would blow out the bar. */
+.brand-mark-fallback {
+  width: 36px;
+  height: 36px;
+  display: block;
 }
 .brand-sub {
   font-size: 12px;

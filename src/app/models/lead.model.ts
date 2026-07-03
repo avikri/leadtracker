@@ -10,7 +10,7 @@ import { Timestamp } from '@angular/fire/firestore';
  *  - Leads are NEVER deleted. Status moves through soft states only.
  *  - Every state transition is timestamped, so month-over-month trend reporting
  *    can be built on top later without backfilling.
- *  - `locationId` is on every lead (multi-tenancy plumbing) but never shown in the UI.
+ *  - `organizationId` is on every lead (multi-tenancy plumbing) but never shown in the UI.
  */
 
 /** Where the lead came from. Each source captures a different field set + conversion goal. */
@@ -42,8 +42,12 @@ export interface TrialTouchpoints {
 export interface Lead {
   id: string;
 
-  /** Multi-tenancy plumbing. Always set, never surfaced in the UI. */
-  locationId: string;
+  /**
+   * Multi-tenancy plumbing: FK to `organizations` (see org.model.ts). Always set, never
+   * surfaced in the UI, and load-bearing in the Firestore rules — access requires it to
+   * match the caller's `users/{uid}.organizationId`.
+   */
+  organizationId: string;
 
   source: LeadSource;
 
@@ -86,7 +90,7 @@ export interface Lead {
 
 /**
  * Shape used to CREATE a lead. The caller supplies domain fields; the service stamps
- * id, locationId, status='New', timestamps and contactMethod.
+ * id, organizationId, status='New', timestamps and contactMethod.
  * This is the single ingestion entry point that the Phase 2 importer will also call.
  */
 export type LeadDraft = Pick<Lead, 'source' | 'name' | 'phone'> &

@@ -17,7 +17,6 @@ export const environment = {
     appId: 'YOUR_PROD_APP_ID',
   },
 
-  defaultLocationId: 'auckland-studio',
   requireAuth: true,
   seedOnStartup: false,
 };

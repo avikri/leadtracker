@@ -21,7 +21,10 @@ import {
   where,
 } from '@angular/fire/firestore';
 
-import { environment } from '../../environments/environment';
+import { Observable, of } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
+
+import { OrgService } from './org.service';
 import {
   ContactMethod,
   Lead,
@@ -126,21 +129,16 @@ export function matchesLeadFilters(lead: Lead, f: LeadTableFilters): boolean {
  * This is the seam Claude Code will extend. Notable extension points:
  *  - `createLead()` is the single ingestion entry point. The Phase 2 Mindbody / ScoreApp
  *    importer should call this same method (see "TODO: Phase 2 ingestion").
- *  - All reads/writes are scoped to `locationId` so this can become multi-studio with no
- *    schema retrofit.
+ *  - All reads/writes are scoped to the signed-in user's `organizationId` (see OrgService),
+ *    which the Firestore rules also enforce server-side.
  *  - Leads are never deleted; every transition is timestamped for later trend reporting.
  */
 @Injectable({ providedIn: 'root' })
 export class LeadService {
   private firestore = inject(Firestore);
+  private org = inject(OrgService);
 
   private readonly leadsCollection = collection(this.firestore, 'leads');
-
-  /**
-   * Active tenant. Hard-coded to the single live studio for now and kept out of the UI.
-   * When this becomes multi-studio, derive it from the signed-in user instead.
-   */
-  readonly locationId = environment.defaultLocationId;
 
   /** Page size for the paginated "All leads" table, enforced via Firestore `limit()`. */
   readonly pageSize = 20;
@@ -148,21 +146,28 @@ export class LeadService {
   // --- Reactive reads ---------------------------------------------------------
 
   /**
-   * Live stream of this location's leads, newest entered first.
+   * Live stream of the signed-in user's organisation's leads, newest entered first.
+   * Re-targets whenever the org id changes (login/logout); empty while it is unknown.
    *
    * NOTE: this backs the (deliberately unpaginated) "To text today" queue only. The
    * "All leads" table does NOT read this — it pages Firestore-side via `fetchLeadsPage`
    * so it stays bounded as the collection grows without limit.
    */
   readonly leads = toSignal(
-    collectionData(
-      query(
-        this.leadsCollection,
-        where('locationId', '==', this.locationId),
-        orderBy('createdAt', 'desc'),
+    this.org.organizationId$.pipe(
+      switchMap((orgId) =>
+        orgId === null
+          ? of([] as Lead[])
+          : (collectionData(
+              query(
+                this.leadsCollection,
+                where('organizationId', '==', orgId),
+                orderBy('createdAt', 'desc'),
+              ),
+              { idField: 'id' },
+            ) as unknown as Observable<Lead[]>),
       ),
-      { idField: 'id' },
-    ) as unknown as import('rxjs').Observable<Lead[]>,
+    ),
     { initialValue: [] as Lead[] },
   );
 
@@ -213,7 +218,7 @@ export class LeadService {
    * FIRESTORE CONSTRAINT this is designed around: a query allows a range filter on only ONE
    * field, and `orderBy` must be that field. `createdAt` keeps that slot permanently — the
    * date-range filter is a true server-side `where` riding the same composite indexes the
-   * table already uses (locationId [+source] [+status] + createdAt). Name search is therefore
+   * table already uses (organizationId [+source] [+status] + createdAt). Name search is therefore
    * NEVER a Firestore range filter (no `nameLower` startAt/endAt): it runs client-side as a
    * substring match, which is more useful than prefix anyway ("chen" finds "Sarah Chen").
    * Service/promo run client-side too — server-side equality on them would need a composite
@@ -229,7 +234,8 @@ export class LeadService {
    * is issued; `hasMore` says whether paging forward makes sense.
    */
   async fetchLeadsPage(opts: LeadPageQuery): Promise<LeadPage> {
-    const base: QueryConstraint[] = [where('locationId', '==', this.locationId)];
+    const orgId = await this.org.requireOrganizationId();
+    const base: QueryConstraint[] = [where('organizationId', '==', orgId)];
     if (opts.source !== 'all') base.push(where('source', '==', opts.source));
     if (opts.status !== 'all') base.push(where('status', '==', opts.status));
     if (opts.createdFrom) base.push(where('createdAt', '>=', Timestamp.fromDate(opts.createdFrom)));
@@ -299,9 +305,10 @@ export class LeadService {
    * importers should call this exact method so manual + automatic leads stay identical.
    */
   async createLead(draft: LeadDraft): Promise<string> {
+    const organizationId = await this.org.requireOrganizationId();
     const now = serverTimestamp();
     const base: Record<string, unknown> = {
-      locationId: this.locationId,
+      organizationId,
       source: draft.source,
       name: draft.name.trim(),
       phone: draft.phone.trim(),

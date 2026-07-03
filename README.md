@@ -1,6 +1,6 @@
 # Front Desk · Lead Tracker
 
-A front-desk lead tracker for a single fitness/wellness studio (Auckland). Replaces a pile
+A front-desk lead tracker for a single fitness/wellness studio (O Studio Remuera, Auckland). Replaces a pile
 of scattered Google Sheets with **one screen**: staff add every lead as it comes in, then work
 a clean "to contact today" queue each morning.
 
@@ -21,10 +21,11 @@ npm install
 npm start            # → http://localhost:4200
 ```
 
-On first run, with `seedOnStartup: true` (dev only), the app seeds ~14 sample NZ leads if the
-`leads` collection is empty. Auth is a pass-through until you set `requireAuth: true`.
+On first run, with `seedOnStartup: true` (dev only), the app seeds 25 sample NZ leads once
+someone signs in and their organisation has no leads yet (the org id comes from the signed-in
+user's `users/{uid}` doc, and the Firestore rules require it).
 
-> **Firestore index:** the main query filters by `locationId` and orders by `createdAt`, which
+> **Firestore index:** the main query filters by `organizationId` and orders by `createdAt`, which
 > needs a composite index. It's declared in `firestore.indexes.json` (deploy with
 > `firebase deploy --only firestore:indexes`), or just click the link Firestore prints in the
 > console the first time the query runs.
@@ -38,13 +39,15 @@ src/app/
   models/
     lead.model.ts          Lead interface + LeadSource / LeadStatus / ContactMethod unions, Touchpoints, LeadDraft
     lead.constants.ts      Labels, source→contactMethod logic, conversion prompts, status colours
+    org.model.ts           Organization + AppUser (users/{uid} → organizationId join)
   services/
     lead.service.ts        ★ The seam. All Firestore reads/writes. Reactive signals. Never deletes.
     auth.service.ts        Thin Firebase Auth wrapper (who's at the desk → audit fields)
+    org.service.ts         Signed-in user's organizationId as a signal — the single tenancy source of truth
   guards/
     auth.guard.ts          Pass-through until environment.requireAuth = true
   seed/
-    seed-data.ts           ~14 sample leads (NZ names + mobile numbers), all sources & statuses
+    seed-data.ts           25 sample leads (NZ names + mobile numbers), all sources & statuses
     seed.service.ts        Dev-only, seeds once if empty
   features/
     dashboard/             Top bar (+ Add lead, disabled Auto-import) + queue + table + modal
@@ -58,7 +61,7 @@ and call its mutation methods. That's the one seam to extend.
 
 ### Data model (single `leads` collection)
 
-- **Shared:** `id`, `locationId`, `source`, `name`, `phone`, `email`, `serviceUsed`, `notes`,
+- **Shared:** `id`, `organizationId`, `source`, `name`, `phone`, `email`, `serviceUsed`, `notes`,
   `createdAt`.
 - **Follow-up:** `status` (`New → Contacted → Responded → Converted | Lost`), `contactMethod`
   (`text` | `call`), and a timestamp for every transition (`contactedAt`, `respondedAt`,
@@ -86,10 +89,12 @@ and call its mutation methods. That's the one seam to extend.
 
 ### Multi-tenancy (invisible)
 
-Every lead carries `locationId` and every query is scoped to it, but it's **hidden from the UI** —
-no location picker. It's hard-coded to one studio (`environment.defaultLocationId`) so this can
-become a multi-studio/franchise product with no schema retrofit. To go multi-studio, derive
-`locationId` from the signed-in user instead of the environment (see `LeadService.locationId`).
+Every lead carries `organizationId` and every query is scoped to it, but it's **hidden from the
+UI** — no org picker. The id comes from the signed-in user's `users/{uid}` doc (see
+`OrgService`), and `firestore.rules` enforce the same scoping server-side: a user can only
+read/write leads in their own organisation. There's one org today (O-Studio Remuera, created by
+`scripts/migrate-to-orgs.mjs`) and no signup/invite/switcher UI yet — a user has exactly one org
+and every member has full access (no roles).
 
 ---
 

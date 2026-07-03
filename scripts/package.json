@@ -5,6 +5,7 @@
   "description": "One-off maintenance scripts (Admin SDK). NOT part of the Angular app bundle.",
   "type": "module",
   "scripts": {
+    "migrate:orgs": "node migrate-to-orgs.mjs",
     "seed:prod": "node seed-prod.mjs",
     "cleanup:seed": "node cleanup-seed.mjs"
   },

@@ -21,14 +21,6 @@ export const environment = {
   },
 
   /**
-   * Multi-tenancy plumbing. Every lead is stamped with, and every query filtered by,
-   * this id. There is only one live studio today, so it is hard-coded and never shown
-   * in the UI. When this becomes a multi-studio product, derive it from the signed-in
-   * user / tenant instead of reading it from here. See LeadService.locationId.
-   */
-  defaultLocationId: 'auckland-studio',
-
-  /**
    * Baseline auth is a thin stub. With requireAuth=false the auth guard is a pass-through
    * so you can run the app immediately. Flip to true once you have created Firebase Auth
    * users — the guard will then redirect anonymous visitors to /login.

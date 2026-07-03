@@ -19,6 +19,18 @@ never bundles `firebase-admin`.
    npm install
    ```
 
+## Migrate to the multi-organisation model (one-shot, already run once)
+
+```
+npm run migrate:orgs -- --dry-run   # preview: org to create, lead/user counts
+npm run migrate:orgs                # create the org, re-point leads, link auth users
+```
+
+Creates the `organizations` doc, rewrites every lead's `locationId` → `organizationId`,
+and creates a `users/{uid}` doc per Firebase Auth user. It refuses to run twice (aborts
+if an organizations doc already exists). Run it BEFORE deploying the org-scoped
+`firestore.rules` / renamed indexes.
+
 ## Seed 50 fake leads
 
 ```

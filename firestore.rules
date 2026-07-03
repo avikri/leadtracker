@@ -1,14 +1,39 @@
 rules_version = '2';
 
-// Baseline rules. Tighten before production.
-// Today: any signed-in user may read/write leads, and deletes are blocked outright
-// (leads are retained indefinitely — see the data model). When this becomes multi-studio,
-// scope access by request.auth's locationId / tenant claim.
+// Org-scoped access. A signed-in user may only touch leads whose `organizationId`
+// matches their own `users/{uid}.organizationId` (one extra doc read per request —
+// see userOrg()). Deletes stay blocked outright: leads are retained indefinitely.
+//
+// NOTE on deletes: rules are additive and `write` = create + update + delete, so a broad
+// `allow write` would silently permit deletes despite an `allow delete: if false` line.
+// That's why leads grant create/update separately and never `write`.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // The caller's organisation, from their users/{uid} join doc (see org.model.ts).
+    function userOrg(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.organizationId;
+    }
+
     match /leads/{leadId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null
+        && userOrg(request.auth.uid) == resource.data.organizationId;
+      // Updates must stay inside the org — a lead can never be moved to another one.
+      allow update: if request.auth != null
+        && userOrg(request.auth.uid) == resource.data.organizationId
+        && request.resource.data.organizationId == resource.data.organizationId;
+      allow create: if request.auth != null
+        && userOrg(request.auth.uid) == request.resource.data.organizationId;
       allow delete: if false; // never delete leads
+    }
+
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false; // no self-service writes yet — admin/migration only
+    }
+
+    match /organizations/{orgId} {
+      allow read: if request.auth != null && userOrg(request.auth.uid) == orgId;
+      allow write: if false; // created by admin/migration only
     }
   }
 }
