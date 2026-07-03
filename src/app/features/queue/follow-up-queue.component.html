@@ -27,6 +27,15 @@
         }
       </select>
     </label>
+    <label class="filter">
+      <span>Check-in</span>
+      <select class="select" [value]="checkinFilter()" (change)="checkinFilter.set($any($event.target).value)">
+        <option value="all">All</option>
+        @for (k of checkinStages; track k) {
+          <option [value]="k">{{ TRIAL_TOUCHPOINT_LABEL[k] }}</option>
+        }
+      </select>
+    </label>
   </div>
 
   @if (queue().length === 0) {

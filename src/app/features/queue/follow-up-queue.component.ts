@@ -13,6 +13,7 @@ import {
   TrialTouchpointKey,
   contactActionLabel,
   defaultContactMethod,
+  nextOutstandingTouchpointKey,
 } from '../../models/lead.constants';
 import { relative } from '../../shared/format.util';
 
@@ -34,26 +35,44 @@ export class FollowUpQueueComponent {
 
   // Queue-only filters — independent of the All-leads table's filter state.
   readonly sourceFilter = signal<LeadSource | 'all'>('all');
-  /** Contact method, derived from source (quiz → call, rest → text) — never stored. */
+  /** Contact method (non-trial leads only): quiz → call, new/promo/deal99 → text. */
   readonly methodFilter = signal<ContactMethod | 'all'>('all');
+  /** Trial check-in stage — matches trials by their next outstanding touchpoint. */
+  readonly checkinFilter = signal<TrialTouchpointKey | 'all'>('all');
 
   readonly anyFilterActive = computed(
-    () => this.sourceFilter() !== 'all' || this.methodFilter() !== 'all',
+    () =>
+      this.sourceFilter() !== 'all' ||
+      this.methodFilter() !== 'all' ||
+      this.checkinFilter() !== 'all',
   );
 
   /** The service's queue narrowed by the local filters; drives the cards AND the badge. */
   readonly queue = computed(() =>
     this.leadService.followUpQueue().filter((lead) => {
       if (this.sourceFilter() !== 'all' && lead.source !== this.sourceFilter()) return false;
+      // Contact method applies to non-trial leads only; trials are matched by check-in.
       const method = this.methodFilter();
-      return method === 'all' || defaultContactMethod(lead.source) === method;
+      if (method !== 'all') {
+        if (lead.source === 'trial') return false;
+        if (defaultContactMethod(lead.source) !== method) return false;
+      }
+      // Trial check-in stage applies to trial leads only (their next outstanding touchpoint).
+      const checkin = this.checkinFilter();
+      if (checkin !== 'all') {
+        if (lead.source !== 'trial') return false;
+        if (nextOutstandingTouchpointKey(lead) !== checkin) return false;
+      }
+      return true;
     }),
   );
 
   readonly sources = LEAD_SOURCES;
   readonly contactMethods = CONTACT_METHODS;
+  readonly checkinStages = TRIAL_TOUCHPOINT_ORDER;
   readonly SOURCE_LABEL = SOURCE_LABEL;
   readonly CONTACT_METHOD_LABEL = CONTACT_METHOD_LABEL;
+  readonly TRIAL_TOUCHPOINT_LABEL = TRIAL_TOUCHPOINT_LABEL;
 
   relative = relative;
   contactActionLabel = contactActionLabel;
@@ -70,9 +89,7 @@ export class FollowUpQueueComponent {
 
   /** The next outstanding trial touchpoint key, or null if trial's done / not a trial. */
   nextTouchpointKey(lead: Lead): TrialTouchpointKey | null {
-    if (lead.source !== 'trial') return null;
-    const tp = lead.touchpoints;
-    return TRIAL_TOUCHPOINT_ORDER.find((k) => !tp || !tp[k].done) ?? null;
+    return nextOutstandingTouchpointKey(lead);
   }
 
   /** Next outstanding trial check-in label, for the "Next:" line on trial cards. */

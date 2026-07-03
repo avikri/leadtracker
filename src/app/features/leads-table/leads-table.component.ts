@@ -59,8 +59,10 @@ export class LeadsTableComponent implements OnInit, OnDestroy {
   // Filters (table-only). Changing any of them resets pagination to page 1.
   readonly sourceFilter = signal<LeadSource | 'all'>('all');
   readonly statusFilter = signal<LeadStatus | 'all'>('all');
-  /** Contact method, derived from source (quiz → call, rest → text) — never stored. */
+  /** Contact method (non-trial leads only): quiz → call, new/promo/deal99 → text. */
   readonly methodFilter = signal<ContactMethod | 'all'>('all');
+  /** Trial check-in stage — matches trials by their next outstanding touchpoint. */
+  readonly checkinFilter = signal<TrialTouchpointKey | 'all'>('all');
   readonly serviceFilter = signal<string | 'all'>('all');
   readonly promoFilter = signal<string | 'all'>('all');
   /** What's in the search box right now (undebounced — drives only the input + clear UI). */
@@ -77,6 +79,7 @@ export class LeadsTableComponent implements OnInit, OnDestroy {
     source: this.sourceFilter(),
     status: this.statusFilter(),
     method: this.methodFilter(),
+    checkin: this.checkinFilter(),
     service: this.serviceFilter(),
     promo: this.promoFilter(),
     search: this.searchTerm(),
@@ -90,6 +93,7 @@ export class LeadsTableComponent implements OnInit, OnDestroy {
       f.source !== 'all' ||
       f.status !== 'all' ||
       f.method !== 'all' ||
+      f.checkin !== 'all' ||
       f.service !== 'all' ||
       f.promo !== 'all' ||
       f.search.trim() !== '' ||
@@ -186,6 +190,11 @@ export class LeadsTableComponent implements OnInit, OnDestroy {
     this.scheduleFirstPage();
   }
 
+  onCheckinFilterChange(value: TrialTouchpointKey | 'all'): void {
+    this.checkinFilter.set(value);
+    this.scheduleFirstPage();
+  }
+
   onServiceFilterChange(value: string): void {
     this.serviceFilter.set(value);
     this.scheduleFirstPage();
@@ -236,6 +245,7 @@ export class LeadsTableComponent implements OnInit, OnDestroy {
     this.sourceFilter.set('all');
     this.statusFilter.set('all');
     this.methodFilter.set('all');
+    this.checkinFilter.set('all');
     this.serviceFilter.set('all');
     this.promoFilter.set('all');
     this.dateFrom.set('');

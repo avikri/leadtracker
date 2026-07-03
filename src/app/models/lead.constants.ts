@@ -1,4 +1,4 @@
-import { ContactMethod, LeadSource, LeadStatus } from './lead.model';
+import { ContactMethod, Lead, LeadSource, LeadStatus } from './lead.model';
 
 /** Human-readable labels + small bits of source/status logic, kept in one place. */
 
@@ -84,6 +84,18 @@ export const TRIAL_TOUCHPOINT_ORDER = [
   'finalTrialCall',
 ] as const;
 export type TrialTouchpointKey = (typeof TRIAL_TOUCHPOINT_ORDER)[number];
+
+/**
+ * The next outstanding trial check-in for a lead, or null when it isn't a trial or every
+ * check-in is already done. Single source of truth for "which touchpoint is next" — shared
+ * by the queue card action, the queue "Next:" label, and the trial check-in filter, so the
+ * button a card shows and the filter it matches can never disagree.
+ */
+export function nextOutstandingTouchpointKey(lead: Lead): TrialTouchpointKey | null {
+  if (lead.source !== 'trial') return null;
+  const tp = lead.touchpoints;
+  return TRIAL_TOUCHPOINT_ORDER.find((k) => !tp || !tp[k].done) ?? null;
+}
 
 /** Queue action button verb for marking a specific trial touchpoint done. */
 export const TRIAL_TOUCHPOINT_ACTION_LABEL: Record<TrialTouchpointKey, string> = {

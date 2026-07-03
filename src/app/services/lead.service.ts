@@ -34,6 +34,7 @@ import {
   TRIAL_TOUCHPOINT_ORDER,
   TrialTouchpointKey,
   defaultContactMethod,
+  nextOutstandingTouchpointKey,
 } from '../models/lead.constants';
 
 /** A cursor into the leads collection: the last document snapshot of a fetched page. */
@@ -44,14 +45,24 @@ export type LeadCursor = QueryDocumentSnapshot<DocumentData>;
  *
  * How each one runs (see `fetchLeadsPage` for why):
  *  - source / status / date range → Firestore `where` clauses.
- *  - search / service / promo / method → client-side predicate (`matchesLeadFilters`)
- *    applied while filling a page.
+ *  - search / service / promo / method / checkin → client-side predicate
+ *    (`matchesLeadFilters`) applied while filling a page.
  */
 export interface LeadTableFilters {
   source: LeadSource | 'all';
   status: LeadStatus | 'all';
-  /** Contact method, DERIVED from source (`defaultContactMethod`) — not the stored field. */
+  /**
+   * Contact method, DERIVED from source (`defaultContactMethod`) — not the stored field.
+   * Applies to NON-trial leads only: trials are sliced by `checkin` instead, so a specific
+   * method ('text'/'call') never matches a trial.
+   */
   method: ContactMethod | 'all';
+  /**
+   * Trial check-in stage, matched against the lead's NEXT outstanding touchpoint
+   * (`nextOutstandingTouchpointKey`). Applies to trial leads only — a specific stage never
+   * matches a non-trial lead. Independent of `method`.
+   */
+  checkin: TrialTouchpointKey | 'all';
   /** Case-insensitive substring match on `name`. Empty string = off. */
   search: string;
   /** Inclusive `createdAt` bounds. Callers pass local start/end-of-day. Null = unbounded. */
@@ -86,7 +97,16 @@ export interface LeadPage {
 export function matchesLeadFilters(lead: Lead, f: LeadTableFilters): boolean {
   if (f.source !== 'all' && lead.source !== f.source) return false;
   if (f.status !== 'all' && lead.status !== f.status) return false;
-  if (f.method !== 'all' && defaultContactMethod(lead.source) !== f.method) return false;
+  // Contact method applies to non-trial leads only; trials are matched by `checkin`.
+  if (f.method !== 'all') {
+    if (lead.source === 'trial') return false;
+    if (defaultContactMethod(lead.source) !== f.method) return false;
+  }
+  // Trial check-in stage applies to trial leads only (their next outstanding touchpoint).
+  if (f.checkin !== 'all') {
+    if (lead.source !== 'trial') return false;
+    if (nextOutstandingTouchpointKey(lead) !== f.checkin) return false;
+  }
   if (f.service !== 'all' && lead.serviceUsed !== f.service) return false;
   if (f.promo !== 'all' && lead.promoName !== f.promo) return false;
   const term = f.search.trim().toLowerCase();
@@ -217,11 +237,13 @@ export class LeadService {
     base.push(orderBy('createdAt', 'desc'));
 
     // Only over-fetch when a client-side filter can actually thin the batch. A method
-    // filter can't thin it when source is pinned (method is derived from source).
+    // filter can't thin it when source is pinned (method is derived from source); a checkin
+    // filter always can (it keeps only trials at one specific next touchpoint).
     const scanning =
       opts.search.trim() !== '' ||
       opts.service !== 'all' ||
       opts.promo !== 'all' ||
+      opts.checkin !== 'all' ||
       (opts.method !== 'all' && opts.source === 'all');
     const batchSize = scanning ? SCAN_BATCH_SIZE : this.pageSize;
 

@@ -53,6 +53,15 @@
       </select>
     </label>
     <label class="filter">
+      <span>Check-in</span>
+      <select class="select" [value]="checkinFilter()" (change)="onCheckinFilterChange($any($event.target).value)">
+        <option value="all">All</option>
+        @for (k of TRIAL_TOUCHPOINT_ORDER; track k) {
+          <option [value]="k">{{ TRIAL_TOUCHPOINT_LABEL[k] }}</option>
+        }
+      </select>
+    </label>
+    <label class="filter">
       <span>Status</span>
       <select class="select" [value]="statusFilter()" (change)="onStatusFilterChange($any($event.target).value)">
         <option value="all">All</option>
