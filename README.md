@@ -66,8 +66,13 @@ and call its mutation methods. That's the one seam to extend.
 - **Follow-up:** `status` (`New → Contacted → Responded → Converted | Lost`), `contactMethod`
   (`text` | `call`), and a timestamp for every transition (`contactedAt`, `respondedAt`,
   `convertedAt`, `lostAt`, `lastContactAt`) plus `conversionOutcome`.
-- **Trial-only:** `trialStage` / `trialDay`, `experienceNotes`, and `touchpoints`
+- **New-client-only:** `leadDate` — the editable business date (backdatable); `createdAt`
+  stays the system entry timestamp, and date filtering uses `leadDate ?? createdAt`.
+- **Trial-only:** `trialStartDate` (Day 1 — drives the Day 1 / 4 / 7 check-in queue),
+  `trialEndDate` (reference only), `experienceNotes`, and `touchpoints`
   (`firstServiceContact`, `midTrialCheck`, `finalTrialCall`), each `{ done, at }`.
+  Legacy docs may still carry the retired `trialStage` / `trialDay` pair; undated trials
+  fall back to `createdAt` as Day 1.
 - **Promo-only:** `promoName`, `purchaseDate`.
 
 ### Behaviours baked in (and where)

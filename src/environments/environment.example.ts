@@ -32,4 +32,11 @@ export const environment = {
    * Never runs when production=true. See SeedService.
    */
   seedOnStartup: true,
+
+  /**
+   * When true, the app connects to the local Firebase Emulator Suite (see app.config.ts).
+   * Left false for normal dev/prod; the Playwright `test` configuration flips it on via
+   * environment.test.ts.
+   */
+  useEmulators: false,
 };

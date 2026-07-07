@@ -34,10 +34,11 @@ import {
   TrialTouchpoints,
 } from '../models/lead.model';
 import {
-  TRIAL_TOUCHPOINT_ORDER,
+  TRIAL_TOUCHPOINT_DUE_DAY,
   TrialTouchpointKey,
   defaultContactMethod,
   nextOutstandingTouchpointKey,
+  trialDayNumber,
 } from '../models/lead.constants';
 
 /** A cursor into the leads collection: the last document snapshot of a fetched page. */
@@ -47,8 +48,8 @@ export type LeadCursor = QueryDocumentSnapshot<DocumentData>;
  * The combinable "All leads" table filters. All are ANDed together.
  *
  * How each one runs (see `fetchLeadsPage` for why):
- *  - source / status / date range → Firestore `where` clauses.
- *  - search / service / promo / method / checkin → client-side predicate
+ *  - source / status → Firestore `where` clauses.
+ *  - search / service / promo / method / checkin / date range → client-side predicate
  *    (`matchesLeadFilters`) applied while filling a page.
  */
 export interface LeadTableFilters {
@@ -68,7 +69,11 @@ export interface LeadTableFilters {
   checkin: TrialTouchpointKey | 'all';
   /** Case-insensitive substring match on `name`. Empty string = off. */
   search: string;
-  /** Inclusive `createdAt` bounds. Callers pass local start/end-of-day. Null = unbounded. */
+  /**
+   * Inclusive bounds on the EFFECTIVE lead date — `leadDate` when present (backdated
+   * new-client entries), else `createdAt`. Callers pass local start/end-of-day.
+   * Null = unbounded.
+   */
   createdFrom: Date | null;
   createdTo: Date | null;
   /** Exact `serviceUsed` value. */
@@ -114,11 +119,12 @@ export function matchesLeadFilters(lead: Lead, f: LeadTableFilters): boolean {
   if (f.promo !== 'all' && lead.promoName !== f.promo) return false;
   const term = f.search.trim().toLowerCase();
   if (term && !lead.name.toLowerCase().includes(term)) return false;
-  // A just-created lead's serverTimestamp is briefly null in latency-compensated
-  // snapshots — treat it as "now" so it passes recency-style date filters.
-  const created = lead.createdAt?.toMillis() ?? Date.now();
-  if (f.createdFrom && created < f.createdFrom.getTime()) return false;
-  if (f.createdTo && created > f.createdTo.getTime()) return false;
+  // Date range keys off the EFFECTIVE date: leadDate (backdated new-client entries) when
+  // present, else createdAt. A just-created lead's serverTimestamp is briefly null in
+  // latency-compensated snapshots — treat it as "now" so it passes recency-style filters.
+  const effective = (lead.leadDate ?? lead.createdAt)?.toMillis() ?? Date.now();
+  if (f.createdFrom && effective < f.createdFrom.getTime()) return false;
+  if (f.createdTo && effective > f.createdTo.getTime()) return false;
   return true;
 }
 
@@ -175,10 +181,12 @@ export class LeadService {
    * Today's follow-up queue, most-overdue first (front desk works the backlog top-down).
    *
    * Membership rules differ by source:
-   *  - Trial leads are driven by TOUCHPOINTS, not the generic status: a trial belongs in
-   *    the queue whenever it still has an outstanding check-in (firstServiceContact /
-   *    midTrialCheck / finalTrialCall) and the deal isn't already closed
-   *    (Converted/Lost). It therefore resurfaces once per touchpoint, not once total.
+   *  - Trial leads are driven by TOUCHPOINT DUE DATES, not the generic status: a trial
+   *    surfaces only when its NEXT incomplete check-in is due — current trial day
+   *    (derived from trialStartDate, Day 1 = start) ≥ that touchpoint's due day
+   *    (Day 1 / 4 / 7) — and stays until it's marked complete, so an overdue check-in is
+   *    never silently dropped. Between due days, and once every check-in is done or the
+   *    deal is closed (Converted/Lost), the trial stays out of the queue.
    *  - Every other source keeps the simple rule: still at status 'New'.
    *
    * Sort is by "days waiting" descending so the oldest New leads and the most
@@ -195,7 +203,10 @@ export class LeadService {
     if (lead.source === 'trial') {
       // Closed deals drop out regardless of any remaining touchpoints.
       if (lead.status === 'Converted' || lead.status === 'Lost') return false;
-      return hasOutstandingTouchpoint(lead);
+      const next = nextOutstandingTouchpointKey(lead);
+      if (!next) return false; // all three check-ins done
+      // Due (or overdue) check-ins surface and stay; between due days the trial rests.
+      return trialDayNumber(lead) >= TRIAL_TOUCHPOINT_DUE_DAY[next];
     }
     return lead.status === 'New';
   }
@@ -206,7 +217,7 @@ export class LeadService {
    * longer-overdue next touchpoint outranks a fresher one.
    */
   private queuePriority(lead: Lead): number {
-    return lead.source === 'trial' ? daysIntoTrial(lead) : ageInDays(lead.createdAt);
+    return lead.source === 'trial' ? trialDayNumber(lead) : ageInDays(lead.createdAt);
   }
 
   // --- Paginated table read ---------------------------------------------------
@@ -216,13 +227,14 @@ export class LeadService {
    * applied in combination, ordered by `createdAt` desc, using Firestore cursor pagination.
    *
    * FIRESTORE CONSTRAINT this is designed around: a query allows a range filter on only ONE
-   * field, and `orderBy` must be that field. `createdAt` keeps that slot permanently — the
-   * date-range filter is a true server-side `where` riding the same composite indexes the
-   * table already uses (organizationId [+source] [+status] + createdAt). Name search is therefore
-   * NEVER a Firestore range filter (no `nameLower` startAt/endAt): it runs client-side as a
-   * substring match, which is more useful than prefix anyway ("chen" finds "Sarah Chen").
-   * Service/promo run client-side too — server-side equality on them would need a composite
-   * index per filter combination.
+   * field, and `orderBy` must be that field. `createdAt` keeps that slot permanently (it's
+   * the sort), and NO range `where` is issued at all: the date filter keys off the EFFECTIVE
+   * date — `leadDate` when present (backdatable new-client entries), else `createdAt` —
+   * which spans two fields, so it runs client-side in `matchesLeadFilters` exactly like the
+   * name search. Name search is likewise NEVER a Firestore range filter (no `nameLower`
+   * startAt/endAt): it runs client-side as a substring match, which is more useful than
+   * prefix anyway ("chen" finds "Sarah Chen"). Service/promo run client-side too —
+   * server-side equality on them would need a composite index per filter combination.
    *
    * Client-side filters mean a raw Firestore page can thin out, so the page is FILLED by
    * scanning `createdAt`-ordered batches through `matchesLeadFilters` until `pageSize` match
@@ -238,8 +250,6 @@ export class LeadService {
     const base: QueryConstraint[] = [where('organizationId', '==', orgId)];
     if (opts.source !== 'all') base.push(where('source', '==', opts.source));
     if (opts.status !== 'all') base.push(where('status', '==', opts.status));
-    if (opts.createdFrom) base.push(where('createdAt', '>=', Timestamp.fromDate(opts.createdFrom)));
-    if (opts.createdTo) base.push(where('createdAt', '<=', Timestamp.fromDate(opts.createdTo)));
     base.push(orderBy('createdAt', 'desc'));
 
     // Only over-fetch when a client-side filter can actually thin the batch. A method
@@ -250,6 +260,8 @@ export class LeadService {
       opts.service !== 'all' ||
       opts.promo !== 'all' ||
       opts.checkin !== 'all' ||
+      opts.createdFrom !== null ||
+      opts.createdTo !== null ||
       (opts.method !== 'all' && opts.source === 'all');
     const batchSize = scanning ? SCAN_BATCH_SIZE : this.pageSize;
 
@@ -350,7 +362,10 @@ export class LeadService {
     if (current.source === newSource) return;
 
     const cleared = {
-      trialStage: null,
+      leadDate: null,
+      trialStartDate: null,
+      trialEndDate: null,
+      trialStage: null, // legacy pair — still nulled so old docs shed them on a source change
       trialDay: null,
       experienceNotes: null,
       touchpoints: null,
@@ -435,10 +450,14 @@ export class LeadService {
   /** Build the source-specific slice of a lead from a draft/lead, defaulting trial scaffold. */
   private sourceFields(source: LeadSource, src: Partial<Lead>): Record<string, unknown> {
     switch (source) {
+      case 'new':
+        return {
+          leadDate: src.leadDate ?? null,
+        };
       case 'trial':
         return {
-          trialStage: src.trialStage ?? null,
-          trialDay: src.trialDay ?? null,
+          trialStartDate: src.trialStartDate ?? null,
+          trialEndDate: src.trialEndDate ?? null,
           experienceNotes: src.experienceNotes ?? null,
           touchpoints: src.touchpoints ?? emptyTouchpoints(),
         };
@@ -452,7 +471,7 @@ export class LeadService {
           dealName: src.dealName ?? null,
           dealPurchaseDate: src.dealPurchaseDate ?? null,
         };
-      // 'new' and 'quiz' only use shared fields.
+      // 'quiz' only uses shared fields.
       default:
         return {};
     }
@@ -466,20 +485,9 @@ const SCAN_BATCH_SIZE = 100;
 /** Hard cap on raw docs scanned for ONE page, so a no-match search can't read unbounded. */
 const MAX_SCAN_PER_PAGE = 500;
 
-/** True if a trial lead still has at least one incomplete touchpoint. */
-function hasOutstandingTouchpoint(lead: Lead): boolean {
-  const tp = lead.touchpoints ?? emptyTouchpoints();
-  return TRIAL_TOUCHPOINT_ORDER.some((k) => !tp[k].done);
-}
-
 /** Whole/fractional days since a timestamp. */
 function ageInDays(ts: Timestamp): number {
   return (Date.now() - ts.toMillis()) / MS_PER_DAY;
-}
-
-/** How far into the 7-day trial: the recorded trialDay if set, else derived from entry age. */
-function daysIntoTrial(lead: Lead): number {
-  return typeof lead.trialDay === 'number' ? lead.trialDay : ageInDays(lead.createdAt);
 }
 
 /** Fresh, all-undone trial touchpoint scaffold. */

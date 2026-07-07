@@ -57,6 +57,8 @@ export function buildSeedLeads(): SeedLead[] {
       contactMethod: 'text',
       createdAt: ago(6),      contactedAt: ago(5), lastContactAt: ago(2),
       respondedAt: ago(2), convertedAt: null, conversionOutcome: null, lostAt: null,
+      // Entered a few days late — the backdated business date the range filter keys off.
+      leadDate: ago(9),
     },
     {
       source: 'new',
@@ -97,7 +99,8 @@ export function buildSeedLeads(): SeedLead[] {
       contactMethod: 'text',
       createdAt: ago(0.7),      contactedAt: null, lastContactAt: null,
       respondedAt: null, convertedAt: null, conversionOutcome: null, lostAt: null,
-      trialStage: 'Day 1', trialDay: 1,
+      // Day 1 today — first-visit follow-up due.
+      trialStartDate: ago(0.7), trialEndDate: ago(-6.3),
       experienceNotes: 'Signed up at the desk.',
       touchpoints: tp(),
     },
@@ -113,7 +116,8 @@ export function buildSeedLeads(): SeedLead[] {
       contactMethod: 'text',
       createdAt: ago(3),      contactedAt: ago(3), lastContactAt: ago(2),
       respondedAt: null, convertedAt: null, conversionOutcome: null, lostAt: null,
-      trialStage: 'Day 3', trialDay: 3,
+      // Day 4 — mid-trial check due.
+      trialStartDate: ago(3), trialEndDate: ago(-4),
       experienceNotes: 'Enjoying the reformer, a bit sore.',
       touchpoints: {
         firstServiceContact: { done: true, at: ago(3) },
@@ -133,7 +137,8 @@ export function buildSeedLeads(): SeedLead[] {
       contactMethod: 'text',
       createdAt: ago(5),      contactedAt: ago(5), lastContactAt: ago(2),
       respondedAt: ago(3), convertedAt: null, conversionOutcome: null, lostAt: null,
-      trialStage: 'Day 5', trialDay: 5,
+      // Day 6 — between the mid-trial (Day 4) and final-call (Day 7) due days: not queued.
+      trialStartDate: ago(5), trialEndDate: ago(-2),
       experienceNotes: 'Keen on the sauna + classes combo.',
       touchpoints: {
         firstServiceContact: { done: true, at: ago(5) },
@@ -154,7 +159,7 @@ export function buildSeedLeads(): SeedLead[] {
       respondedAt: ago(9), convertedAt: ago(6),
       conversionOutcome: 'Bought a membership — 12-month',
       lostAt: null,
-      trialStage: 'Completed', trialDay: 7,
+      trialStartDate: ago(13), trialEndDate: ago(6),
       experienceNotes: 'Loved the community, all three check-ins done.',
       touchpoints: {
         firstServiceContact: { done: true, at: ago(13) },
@@ -174,6 +179,8 @@ export function buildSeedLeads(): SeedLead[] {
       contactMethod: 'text',
       createdAt: ago(8),      contactedAt: ago(8), lastContactAt: ago(4),
       respondedAt: null, convertedAt: null, conversionOutcome: null, lostAt: ago(4),
+      // Legacy doc shape: free-text stage, NO trialStartDate — exercises the createdAt
+      // fallback and must render/queue without crashing.
       trialStage: 'Day 4', trialDay: 4,
       experienceNotes: 'Came once, stopped replying after the first check-in.',
       touchpoints: {

@@ -18,7 +18,8 @@ import {
 import { relative } from '../../shared/format.util';
 
 /**
- * "To contact today" queue: every lead still at status New, oldest entered first.
+ * "To contact today" queue: every non-trial lead still at status New, plus trials whose
+ * next incomplete check-in is due (Day 1 / 4 / 7 from trialStartDate), oldest first.
  * One-click advance whose label matches the contact method (texted vs called).
  * Reads straight from LeadService signals — no inputs needed.
  */

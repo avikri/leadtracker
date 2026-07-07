@@ -35,7 +35,8 @@ import { dateTime, shortDate } from '../../shared/format.util';
 
 /**
  * All-leads table. Filterable by any COMBINATION of name search, source, status, service,
- * promo and created-date range (filters affect the table only, never the queue). Inline
+ * promo and date range — the dates match the EFFECTIVE lead date (`leadDate` for backdated
+ * new-client entries, else `createdAt`); filters affect the table only, never the queue. Inline
  * action advances the pipeline; at "Responded" the user chooses Convert or Lost (both
  * terminal). Trial rows expand to show + mark the three check-ins.
  *

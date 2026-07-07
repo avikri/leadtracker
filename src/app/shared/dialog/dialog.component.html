@@ -3,6 +3,7 @@
     <div
       #panel
       class="modal-panel dialog-panel"
+      data-testid="dialog"
       role="dialog"
       aria-modal="true"
       [attr.aria-label]="c.title"
@@ -18,6 +19,7 @@
         @if (c.isPrompt) {
           <input
             class="input"
+            data-testid="dialog-input"
             [(ngModel)]="promptValue"
             [placeholder]="c.placeholder"
             (keydown.enter)="confirm()"
@@ -26,9 +28,10 @@
       </div>
 
       <footer class="modal-foot">
-        <button class="btn" type="button" (click)="cancel()">{{ c.cancelLabel }}</button>
+        <button class="btn" data-testid="dialog-cancel" type="button" (click)="cancel()">{{ c.cancelLabel }}</button>
         <button
           class="btn"
+          data-testid="dialog-confirm"
           [class.btn-primary]="c.variant !== 'destructive'"
           [class.btn-danger]="c.variant === 'destructive'"
           type="button"

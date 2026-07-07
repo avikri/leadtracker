@@ -1,5 +1,5 @@
 <div class="login-wrap">
-  <form class="login-card panel" (ngSubmit)="submit()">
+  <form class="login-card panel" data-testid="login-form" (ngSubmit)="submit()">
     <div class="login-brand">
       <span class="brand-mark">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -17,6 +17,7 @@
       <label class="field-label" for="login-email">Email</label>
       <input
         id="login-email"
+        data-testid="login-email"
         class="input"
         type="email"
         name="email"
@@ -31,6 +32,7 @@
       <label class="field-label" for="login-password">Password</label>
       <input
         id="login-password"
+        data-testid="login-password"
         class="input"
         type="password"
         name="password"
@@ -42,10 +44,10 @@
     </div>
 
     @if (error()) {
-      <p class="login-error">{{ error() }}</p>
+      <p class="login-error" data-testid="login-error">{{ error() }}</p>
     }
 
-    <button class="btn btn-primary login-submit" type="submit" [disabled]="submitting()">
+    <button class="btn btn-primary login-submit" data-testid="login-submit" type="submit" [disabled]="submitting()">
       {{ submitting() ? 'Signing in…' : 'Sign in' }}
     </button>
   </form>

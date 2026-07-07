@@ -165,7 +165,7 @@ export function buildSeedLeads(Timestamp) {
       };
 
       if (source === 'trial') {
-        Object.assign(doc, buildTrial(status, ago, contactedDays, respondedDays, convertedDays, emptyTouchpoints, rand));
+        Object.assign(doc, buildTrial(status, ago, createdDays, contactedDays, respondedDays, convertedDays, emptyTouchpoints, rand));
       }
       if (source === 'promo') {
         doc.promoName = pick(PROMOS);
@@ -194,38 +194,28 @@ function sourceNote(source, pick) {
   return pick(notes[source]);
 }
 
-function buildTrial(status, ago, contactedDays, respondedDays, convertedDays, emptyTouchpoints, rand) {
+function buildTrial(status, ago, createdDays, contactedDays, respondedDays, convertedDays, emptyTouchpoints, rand) {
   const tp = emptyTouchpoints();
   // Touchpoint progress tracks how far the lead has moved.
   const done = (days) => ({ done: true, at: ago(days) });
 
-  let stage = 'Day 1';
-  let trialDay = 1;
-
   if (status === 'Contacted') {
     tp.firstServiceContact = done(contactedDays);
-    stage = 'Day 3';
-    trialDay = 3;
   } else if (status === 'Responded') {
     tp.firstServiceContact = done(contactedDays);
     tp.midTrialCheck = done(respondedDays);
-    stage = 'Day 5';
-    trialDay = 5;
   } else if (status === 'Converted') {
     tp.firstServiceContact = done(contactedDays);
     tp.midTrialCheck = done(respondedDays);
     tp.finalTrialCall = done(convertedDays);
-    stage = 'Completed';
-    trialDay = 7;
   } else if (status === 'Lost') {
     tp.firstServiceContact = done(contactedDays);
-    stage = 'Day 4';
-    trialDay = 4;
   }
 
   return {
-    trialStage: stage,
-    trialDay,
+    // Day 1 = entry day; end date is start + 7 (reference only, mirrors the form default).
+    trialStartDate: ago(createdDays),
+    trialEndDate: ago(createdDays - 7),
     experienceNotes: rand() < 0.5 ? 'Enjoying the sessions so far.' : 'Settling in, asked about class times.',
     touchpoints: tp,
   };

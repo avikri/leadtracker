@@ -19,4 +19,5 @@ export const environment = {
 
   requireAuth: true,
   seedOnStartup: false,
+  useEmulators: false,
 };

@@ -103,3 +103,32 @@ export const TRIAL_TOUCHPOINT_ACTION_LABEL: Record<TrialTouchpointKey, string> =
   midTrialCheck: 'Mark mid-trial check done',
   finalTrialCall: 'Mark final call done',
 };
+
+/**
+ * The trial day each check-in becomes due (Day 1 = trialStartDate): first-visit follow-up
+ * on Day 1, mid-trial check on Day 4, final trial call on Day 7. A trial sits in the
+ * follow-up queue only while its next outstanding touchpoint is due (see LeadService).
+ */
+export const TRIAL_TOUCHPOINT_DUE_DAY: Record<TrialTouchpointKey, number> = {
+  firstServiceContact: 1,
+  midTrialCheck: 4,
+  finalTrialCall: 7,
+};
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Which trial day the lead is on TODAY, derived client-side (never a Firestore query —
+ * `createdAt` must keep the single range-filter slot). Day 1 = the start date's calendar
+ * day. Legacy trials without a `trialStartDate` fall back to `createdAt` as Day 1, so they
+ * keep flowing through the queue instead of breaking or vanishing.
+ */
+export function trialDayNumber(lead: Lead): number {
+  // A just-created lead's serverTimestamp is briefly null — treat as "today" (Day 1).
+  const start = (lead.trialStartDate ?? lead.createdAt)?.toDate() ?? new Date();
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  // Round absorbs DST hour shifts in the calendar-day difference.
+  return Math.round((today - startDay) / MS_PER_DAY) + 1;
+}

@@ -1,6 +1,6 @@
 @if (open) {
   <div class="modal-backdrop" (click)="onBackdrop()">
-    <div class="modal-panel" (click)="$event.stopPropagation()">
+    <div class="modal-panel" data-testid="lead-modal" (click)="$event.stopPropagation()">
       <header class="modal-head">
         <h2>{{ isEdit ? 'Edit lead' : 'Add lead' }}</h2>
         <button class="icon-btn" type="button" (click)="cancel()" aria-label="Close">&times;</button>
@@ -15,6 +15,7 @@
               <button
                 type="button"
                 class="source-chip"
+                [attr.data-testid]="'source-chip-' + s"
                 [class.active]="draft.source === s"
                 (click)="draft.source = s"
               >
@@ -29,22 +30,20 @@
         <div class="grid-2">
           <label>
             <span class="field-label">Name *</span>
-            <input class="input" [(ngModel)]="draft.name" name="name" placeholder="Full name" />
+            <input class="input" data-testid="field-name" [(ngModel)]="draft.name" name="name" placeholder="Full name" />
           </label>
           <label>
             <span class="field-label">Phone *</span>
-            <input class="input" [(ngModel)]="draft.phone" name="phone" placeholder="021 …" />
+            <input class="input" data-testid="field-phone" [(ngModel)]="draft.phone" name="phone" placeholder="021 …" />
           </label>
         </div>
 
         <div class="grid-2">
-          <!-- Email: new/quiz/promo only. Trials are followed up by phone, so no email field. -->
-          @if (draft.source !== 'trial') {
-            <label>
-              <span class="field-label">Email{{ draft.source === 'promo' || draft.source === 'deal99' ? ' (optional)' : '' }}</span>
-              <input class="input" [(ngModel)]="draft.email" name="email" placeholder="name@example.co.nz" />
-            </label>
-          }
+          <!-- Email: every source (always optional — quiz/trial follow-ups happen by phone). -->
+          <label>
+            <span class="field-label">Email{{ draft.source === 'promo' || draft.source === 'deal99' ? ' (optional)' : '' }}</span>
+            <input class="input" data-testid="field-email" [(ngModel)]="draft.email" name="email" placeholder="name@example.co.nz" />
+          </label>
 
           <!-- Service used: new clients and trials only (quiz/promo don't record one). -->
           @if (draft.source === 'new' || draft.source === 'trial') {
@@ -52,6 +51,7 @@
               <span class="field-label">Service used</span>
               <input
                 class="input"
+                data-testid="field-serviceUsed"
                 [(ngModel)]="draft.serviceUsed"
                 name="serviceUsed"
                 placeholder="e.g. Reformer Pilates"
@@ -60,22 +60,36 @@
           }
         </div>
 
+        <!-- NEW-CLIENT-specific -->
+        @if (draft.source === 'new') {
+          <div class="source-section">
+            <div class="grid-2">
+              <label>
+                <span class="field-label">Lead date</span>
+                <input class="input" type="date" data-testid="field-leadDate" [(ngModel)]="draft.leadDate" name="leadDate" />
+              </label>
+            </div>
+            <p class="hint">Defaults to today — backdate it if the visit is being entered late.</p>
+          </div>
+        }
+
         <!-- TRIAL-specific -->
         @if (draft.source === 'trial') {
           <div class="source-section">
             <div class="grid-2">
               <label>
-                <span class="field-label">Trial stage</span>
-                <input class="input" [(ngModel)]="draft.trialStage" name="trialStage" placeholder="e.g. Day 3" />
+                <span class="field-label">Trial start (Day 1) *</span>
+                <input class="input" type="date" data-testid="field-trialStartDate" [ngModel]="draft.trialStartDate" (ngModelChange)="onTrialStartChange($event)" name="trialStartDate" />
               </label>
               <label>
-                <span class="field-label">Trial day</span>
-                <input class="input" type="number" min="1" max="7" [(ngModel)]="draft.trialDay" name="trialDay" />
+                <span class="field-label">Trial end</span>
+                <input class="input" type="date" data-testid="field-trialEndDate" [ngModel]="draft.trialEndDate" (ngModelChange)="onTrialEndChange($event)" name="trialEndDate" />
               </label>
             </div>
+            <p class="hint">Check-ins queue from the start date: first visit Day 1, mid-trial Day 4, final call Day 7. The end date is a reference only.</p>
             <label>
               <span class="field-label">Experience notes</span>
-              <textarea class="textarea" [(ngModel)]="draft.experienceNotes" name="experienceNotes"></textarea>
+              <textarea class="textarea" data-testid="field-experienceNotes" [(ngModel)]="draft.experienceNotes" name="experienceNotes"></textarea>
             </label>
             @if (isEdit) {
               <p class="hint">Trial check-ins (first / mid / final) are tracked on the lead's row.</p>
@@ -89,11 +103,11 @@
             <div class="grid-2">
               <label>
                 <span class="field-label">Campaign / promo name</span>
-                <input class="input" [(ngModel)]="draft.promoName" name="promoName" placeholder="e.g. 3-Week Floats" />
+                <input class="input" data-testid="field-promoName" [(ngModel)]="draft.promoName" name="promoName" placeholder="e.g. 3-Week Floats" />
               </label>
               <label>
                 <span class="field-label">Purchase date</span>
-                <input class="input" type="date" [(ngModel)]="draft.purchaseDate" name="purchaseDate" />
+                <input class="input" type="date" data-testid="field-purchaseDate" [(ngModel)]="draft.purchaseDate" name="purchaseDate" />
               </label>
             </div>
           </div>
@@ -105,11 +119,11 @@
             <div class="grid-2">
               <label>
                 <span class="field-label">$99 deal purchased</span>
-                <input class="input" [(ngModel)]="draft.dealName" name="dealName" placeholder="e.g. $99 Intro Pack" />
+                <input class="input" data-testid="field-dealName" [(ngModel)]="draft.dealName" name="dealName" placeholder="e.g. $99 Intro Pack" />
               </label>
               <label>
                 <span class="field-label">Purchase date</span>
-                <input class="input" type="date" [(ngModel)]="draft.dealPurchaseDate" name="dealPurchaseDate" />
+                <input class="input" type="date" data-testid="field-dealPurchaseDate" [(ngModel)]="draft.dealPurchaseDate" name="dealPurchaseDate" />
               </label>
             </div>
           </div>
@@ -118,13 +132,13 @@
         <!-- Notes (shared) -->
         <label>
           <span class="field-label">Notes</span>
-          <textarea class="textarea" [(ngModel)]="draft.notes" name="notes"></textarea>
+          <textarea class="textarea" data-testid="field-notes" [(ngModel)]="draft.notes" name="notes"></textarea>
         </label>
       </div>
 
       <footer class="modal-foot">
-        <button class="btn" type="button" (click)="cancel()">Cancel</button>
-        <button class="btn btn-primary" type="button" [disabled]="!canSave() || saving" (click)="save()">
+        <button class="btn" data-testid="modal-cancel" type="button" (click)="cancel()">Cancel</button>
+        <button class="btn btn-primary" data-testid="modal-save" type="button" [disabled]="!canSave() || saving" (click)="save()">
           {{ saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add lead' }}
         </button>
       </footer>

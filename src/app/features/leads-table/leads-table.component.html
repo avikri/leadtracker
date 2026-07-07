@@ -1,8 +1,8 @@
-<section class="panel">
+<section class="panel" data-testid="leads-table">
   <header class="panel-head">
     <div>
       <h2>All leads</h2>
-      <p class="panel-sub">{{ resultSummary() }} · nothing is ever deleted</p>
+      <p class="panel-sub"><span data-testid="table-summary">{{ resultSummary() }}</span> · nothing is ever deleted</p>
     </div>
   </header>
 
@@ -14,6 +14,7 @@
         <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.5-4.5" /></svg>
         <input
           class="input search-input"
+          data-testid="table-search"
           type="text"
           placeholder="Search by name"
           [value]="searchInput()"
@@ -28,15 +29,15 @@
     </label>
     <label class="filter">
       <span>From</span>
-      <input class="input" type="date" [value]="dateFrom()" [attr.max]="dateTo() || null" (change)="onDateFromChange($any($event.target).value)" />
+      <input class="input" data-testid="table-date-from" type="date" [value]="dateFrom()" [attr.max]="dateTo() || null" (change)="onDateFromChange($any($event.target).value)" />
     </label>
     <label class="filter">
       <span>To</span>
-      <input class="input" type="date" [value]="dateTo()" [attr.min]="dateFrom() || null" (change)="onDateToChange($any($event.target).value)" />
+      <input class="input" data-testid="table-date-to" type="date" [value]="dateTo()" [attr.min]="dateFrom() || null" (change)="onDateToChange($any($event.target).value)" />
     </label>
     <label class="filter">
       <span>Source</span>
-      <select class="select" [value]="sourceFilter()" (change)="onSourceFilterChange($any($event.target).value)">
+      <select class="select" data-testid="table-filter-source" [value]="sourceFilter()" (change)="onSourceFilterChange($any($event.target).value)">
         <option value="all">All</option>
         @for (s of sources; track s) {
           <option [value]="s">{{ SOURCE_LABEL[s] }}</option>
@@ -45,7 +46,7 @@
     </label>
     <label class="filter">
       <span>Contact</span>
-      <select class="select" [value]="methodFilter()" (change)="onMethodFilterChange($any($event.target).value)">
+      <select class="select" data-testid="table-filter-method" [value]="methodFilter()" (change)="onMethodFilterChange($any($event.target).value)">
         <option value="all">All</option>
         @for (m of contactMethods; track m) {
           <option [value]="m">{{ CONTACT_METHOD_LABEL[m] }}</option>
@@ -54,7 +55,7 @@
     </label>
     <label class="filter">
       <span>Check-in</span>
-      <select class="select" [value]="checkinFilter()" (change)="onCheckinFilterChange($any($event.target).value)">
+      <select class="select" data-testid="table-filter-checkin" [value]="checkinFilter()" (change)="onCheckinFilterChange($any($event.target).value)">
         <option value="all">All</option>
         @for (k of TRIAL_TOUCHPOINT_ORDER; track k) {
           <option [value]="k">{{ TRIAL_TOUCHPOINT_LABEL[k] }}</option>
@@ -63,7 +64,7 @@
     </label>
     <label class="filter">
       <span>Status</span>
-      <select class="select" [value]="statusFilter()" (change)="onStatusFilterChange($any($event.target).value)">
+      <select class="select" data-testid="table-filter-status" [value]="statusFilter()" (change)="onStatusFilterChange($any($event.target).value)">
         <option value="all">All</option>
         @for (s of statuses; track s) {
           <option [value]="s">{{ s }}</option>
@@ -72,7 +73,7 @@
     </label>
     <label class="filter">
       <span>Service</span>
-      <select class="select" [value]="serviceFilter()" (change)="onServiceFilterChange($any($event.target).value)">
+      <select class="select" data-testid="table-filter-service" [value]="serviceFilter()" (change)="onServiceFilterChange($any($event.target).value)">
         <option value="all">All</option>
         @for (s of serviceOptions(); track s) {
           <option [value]="s">{{ s }}</option>
@@ -81,7 +82,7 @@
     </label>
     <label class="filter">
       <span>Promo</span>
-      <select class="select" [value]="promoFilter()" (change)="onPromoFilterChange($any($event.target).value)">
+      <select class="select" data-testid="table-filter-promo" [value]="promoFilter()" (change)="onPromoFilterChange($any($event.target).value)">
         <option value="all">All</option>
         @for (p of promoOptions(); track p) {
           <option [value]="p">{{ p }}</option>
@@ -89,7 +90,7 @@
       </select>
     </label>
     @if (anyFilterActive()) {
-      <button class="btn btn-sm clear-filters" type="button" (click)="clearAllFilters()">
+      <button class="btn btn-sm clear-filters" data-testid="table-clear-filters" type="button" (click)="clearAllFilters()">
         <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
         Clear filters
       </button>
@@ -111,11 +112,11 @@
       </thead>
       <tbody>
         @for (lead of pageLeads(); track lead.id) {
-          <tr>
+          <tr data-testid="lead-row" [attr.data-lead-name]="lead.name" [attr.data-source]="lead.source" [attr.data-status]="lead.status">
             <td>
-              <button class="link-name" type="button" (click)="edit.emit(lead)">{{ lead.name }}</button>
+              <button class="link-name" data-testid="row-name" type="button" (click)="edit.emit(lead)">{{ lead.name }}</button>
               @if (lead.source === 'trial') {
-                <button class="expand-toggle" type="button" (click)="toggleExpand(lead)">
+                <button class="expand-toggle" data-testid="row-expand" type="button" (click)="toggleExpand(lead)">
                   {{ expandedId() === lead.id ? 'Hide check-ins' : 'Check-ins' }}
                 </button>
               }
@@ -133,8 +134,8 @@
               @switch (lead.status) {
                 @case ('Responded') {
                   <div class="action-pair">
-                    <button class="btn btn-sm btn-primary" type="button" [disabled]="loading()" (click)="convert(lead)">Convert</button>
-                    <button class="btn btn-sm btn-danger" type="button" [disabled]="loading()" (click)="markLost(lead)">Lost</button>
+                    <button class="btn btn-sm btn-primary" data-testid="row-convert" type="button" [disabled]="loading()" (click)="convert(lead)">Convert</button>
+                    <button class="btn btn-sm btn-danger" data-testid="row-lost" type="button" [disabled]="loading()" (click)="markLost(lead)">Lost</button>
                   </div>
                 }
                 @case ('Converted') {
@@ -144,7 +145,7 @@
                   <span class="terminal muted">Lost {{ shortDate(lead.lostAt) }}</span>
                 }
                 @default {
-                  <button class="btn btn-sm" type="button" [disabled]="loading()" (click)="advance(lead)">{{ advanceLabel(lead) }}</button>
+                  <button class="btn btn-sm" data-testid="row-advance" type="button" [disabled]="loading()" (click)="advance(lead)">{{ advanceLabel(lead) }}</button>
                 }
               }
             </td>
@@ -162,7 +163,7 @@
                       @if (lead.touchpoints[key].done) {
                         <span class="tp-audit"><svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7" /></svg> {{ shortDate(lead.touchpoints[key].at) }}</span>
                       } @else {
-                        <button class="btn btn-sm" type="button" [disabled]="loading()" (click)="markTouchpoint(lead, key)">Mark done</button>
+                        <button class="btn btn-sm" [attr.data-testid]="'touchpoint-mark-' + key" type="button" [disabled]="loading()" (click)="markTouchpoint(lead, key)">Mark done</button>
                       }
                     </div>
                   }
@@ -184,15 +185,17 @@
   <footer class="pager">
     <button
       class="btn btn-sm"
+      data-testid="table-prev"
       type="button"
       [disabled]="pageIndex() === 0 || loading()"
       (click)="previous()"
     >
       ← Previous
     </button>
-    <span class="pager-status">Page {{ pageIndex() + 1 }}{{ loading() ? ' · loading…' : '' }}</span>
+    <span class="pager-status" data-testid="table-page">Page {{ pageIndex() + 1 }}{{ loading() ? ' · loading…' : '' }}</span>
     <button
       class="btn btn-sm"
+      data-testid="table-next"
       type="button"
       [disabled]="!hasNextPage() || loading()"
       (click)="next()"

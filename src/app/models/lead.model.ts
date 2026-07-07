@@ -72,8 +72,22 @@ export interface Lead {
   conversionOutcome: string | null;
   lostAt: Timestamp | null;
 
+  // --- New-client-specific (source === 'new') ---
+  /**
+   * Business date of the lead — editable so staff can backdate a forgotten entry.
+   * `createdAt` stays the untouched system entry timestamp; date filtering keys off
+   * the EFFECTIVE date (`leadDate` when present, else `createdAt`).
+   */
+  leadDate?: Timestamp | null;
+
   // --- Trial-specific (source === 'trial') ---
+  /** Day 1 of the 7-day trial. Drives the date-based check-in queue (Day 1 / 4 / 7). */
+  trialStartDate?: Timestamp | null;
+  /** Reference/display only (defaults to start + 7 days in the form) — no logic reads it. */
+  trialEndDate?: Timestamp | null;
+  /** @deprecated Legacy free-text stage, replaced by trialStartDate. Still on old docs. */
   trialStage?: string | null;
+  /** @deprecated Legacy manual day number, replaced by deriving from trialStartDate. */
   trialDay?: number | null;
   experienceNotes?: string | null;
   touchpoints?: TrialTouchpoints;
@@ -100,8 +114,9 @@ export type LeadDraft = Pick<Lead, 'source' | 'name' | 'phone'> &
       | 'email'
       | 'serviceUsed'
       | 'notes'
-      | 'trialStage'
-      | 'trialDay'
+      | 'leadDate'
+      | 'trialStartDate'
+      | 'trialEndDate'
       | 'experienceNotes'
       | 'promoName'
       | 'purchaseDate'

@@ -16,10 +16,10 @@
   </div>
   <div class="topbar-actions">
     <!-- Roadmap placeholder: Phase 2 pulls leads from Mindbody + ScoreApp automatically. -->
-    <button class="btn btn-primary" type="button" (click)="openAdd()">+ Add lead</button>
+    <button class="btn btn-primary" data-testid="add-lead" type="button" (click)="openAdd()">+ Add lead</button>
     @if (requireAuth) {
-      <span class="topbar-user" title="Signed in">{{ userName() }}</span>
-      <button class="btn" type="button" (click)="logout()">Sign out</button>
+      <span class="topbar-user" data-testid="current-user" title="Signed in">{{ userName() }}</span>
+      <button class="btn" data-testid="sign-out" type="button" (click)="logout()">Sign out</button>
     }
   </div>
 </header>

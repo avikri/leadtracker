@@ -38,7 +38,20 @@ export class LeadModalComponent {
   readonly SOURCE_LABEL = SOURCE_LABEL;
   readonly SOURCE_GOAL = SOURCE_GOAL;
 
-  @Input() open = false;
+  /**
+   * Opening in ADD mode always starts from a blank draft: after a previous add, `lead`
+   * stays null so its setter never re-fires — without this reset the last entry's values
+   * (and source) would carry over into the next open.
+   */
+  @Input() set open(value: boolean) {
+    if (value && !this._open && !this.editing) this.resetDraft();
+    this._open = value;
+  }
+  get open(): boolean {
+    return this._open;
+  }
+  private _open = false;
+
   @Output() closed = new EventEmitter<void>();
   /**
    * Fired after a successful write, carrying `created` (true = new lead, false = edit).
@@ -54,9 +67,40 @@ export class LeadModalComponent {
   /** Working copy bound to the form. Strings for inputs; converted on save. */
   draft = blankDraft();
 
+  /**
+   * The trial end date auto-follows "start + 7 days" until the user edits it by hand —
+   * after that, start-date changes leave it alone. Recomputed on load for edits: an end
+   * date that still equals the derived default keeps auto-following.
+   */
+  private trialEndTouched = false;
+
   @Input() set lead(value: Lead | null) {
     this.editing = value;
-    this.draft = value ? toDraft(value) : blankDraft();
+    if (value) {
+      this.draft = toDraft(value);
+      this.trialEndTouched =
+        this.draft.trialEndDate !== plusDays(this.draft.trialStartDate, TRIAL_LENGTH_DAYS);
+    } else {
+      this.resetDraft();
+    }
+  }
+
+  private resetDraft(): void {
+    this.draft = blankDraft();
+    this.trialEndTouched = false;
+  }
+
+  /** Start date changed → keep the end date tracking start + 7 unless it was hand-edited. */
+  onTrialStartChange(value: string): void {
+    this.draft.trialStartDate = value;
+    if (!this.trialEndTouched) {
+      this.draft.trialEndDate = plusDays(value, TRIAL_LENGTH_DAYS);
+    }
+  }
+
+  onTrialEndChange(value: string): void {
+    this.draft.trialEndDate = value;
+    this.trialEndTouched = true;
   }
 
   get isEdit(): boolean {
@@ -84,7 +128,12 @@ export class LeadModalComponent {
   }
 
   canSave(): boolean {
-    return this.draft.name.trim().length > 0 && this.draft.phone.trim().length > 0;
+    if (this.draft.name.trim().length === 0 || this.draft.phone.trim().length === 0) {
+      return false;
+    }
+    // The trial start date is Day 1 of the check-in schedule — required for trials.
+    if (this.draft.source === 'trial' && !this.draft.trialStartDate) return false;
+    return true;
   }
 
   async save(): Promise<void> {
@@ -121,13 +170,12 @@ export class LeadModalComponent {
 
   private sharedPatch(): Partial<Lead> {
     // Mirror the form's per-source field visibility so hidden fields aren't persisted stale:
-    // trials capture no email; quiz/promo/$99-deals capture no service used.
-    const usesEmail = this.draft.source !== 'trial';
+    // every source captures an email; quiz/promo/$99-deals capture no service used.
     const usesService = this.draft.source === 'new' || this.draft.source === 'trial';
     return {
       name: this.draft.name.trim(),
       phone: this.draft.phone.trim(),
-      email: usesEmail ? this.draft.email.trim() || null : null,
+      email: this.draft.email.trim() || null,
       serviceUsed: usesService ? this.draft.serviceUsed.trim() || null : null,
       notes: this.draft.notes.trim() || null,
     };
@@ -136,11 +184,18 @@ export class LeadModalComponent {
   /** Source-specific fields ONLY. Excludes touchpoints so editing never wipes them. */
   private sourcePatch(): Partial<Lead> {
     switch (this.draft.source) {
+      case 'new':
+        return {
+          leadDate: parseDate(this.draft.leadDate),
+        };
       case 'trial':
         return {
-          trialStage: this.draft.trialStage.trim() || null,
-          trialDay: this.draft.trialDay === '' ? null : Number(this.draft.trialDay),
+          trialStartDate: parseDate(this.draft.trialStartDate),
+          trialEndDate: parseDate(this.draft.trialEndDate),
           experienceNotes: this.draft.experienceNotes.trim() || null,
+          // Legacy free-text stage/day — nulled on save so old docs converge on the dates.
+          trialStage: null,
+          trialDay: null,
         };
       case 'promo':
         return {
@@ -175,6 +230,9 @@ export class LeadModalComponent {
 
 // --- draft <-> lead mapping ---------------------------------------------------
 
+/** How long the trial runs: the end date defaults to start + 7 days. */
+const TRIAL_LENGTH_DAYS = 7;
+
 interface DraftForm {
   source: LeadSource;
   name: string;
@@ -182,8 +240,9 @@ interface DraftForm {
   email: string;
   serviceUsed: string;
   notes: string;
-  trialStage: string;
-  trialDay: string;
+  leadDate: string; // YYYY-MM-DD
+  trialStartDate: string; // YYYY-MM-DD
+  trialEndDate: string; // YYYY-MM-DD
   experienceNotes: string;
   promoName: string;
   purchaseDate: string; // YYYY-MM-DD
@@ -192,6 +251,9 @@ interface DraftForm {
 }
 
 function blankDraft(): DraftForm {
+  // Dates default to today: leadDate is the business date staff may backdate, and the
+  // trial pair starts as today → today + 7 (most trials are entered on their first day).
+  const today = todayInputValue();
   return {
     source: 'new',
     name: '',
@@ -199,8 +261,9 @@ function blankDraft(): DraftForm {
     email: '',
     serviceUsed: '',
     notes: '',
-    trialStage: '',
-    trialDay: '',
+    leadDate: today,
+    trialStartDate: today,
+    trialEndDate: plusDays(today, TRIAL_LENGTH_DAYS),
     experienceNotes: '',
     promoName: '',
     purchaseDate: '',
@@ -210,6 +273,9 @@ function blankDraft(): DraftForm {
 }
 
 function toDraft(l: Lead): DraftForm {
+  // Older docs predate leadDate/trialStartDate — surface the fallback the app already
+  // uses (createdAt) so saving an edit backfills it explicitly.
+  const trialStart = dateInputValue(l.trialStartDate ?? l.createdAt ?? null);
   return {
     source: l.source,
     name: l.name,
@@ -217,8 +283,9 @@ function toDraft(l: Lead): DraftForm {
     email: l.email ?? '',
     serviceUsed: l.serviceUsed ?? '',
     notes: l.notes ?? '',
-    trialStage: l.trialStage ?? '',
-    trialDay: l.trialDay != null ? String(l.trialDay) : '',
+    leadDate: dateInputValue(l.leadDate ?? l.createdAt ?? null),
+    trialStartDate: trialStart,
+    trialEndDate: dateInputValue(l.trialEndDate ?? null) || plusDays(trialStart, TRIAL_LENGTH_DAYS),
     experienceNotes: l.experienceNotes ?? '',
     promoName: l.promoName ?? '',
     purchaseDate: dateInputValue(l.purchaseDate ?? null),
@@ -229,10 +296,25 @@ function toDraft(l: Lead): DraftForm {
 
 function dateInputValue(ts: Timestamp | null): string {
   if (!ts) return '';
-  const d = ts.toDate();
+  return toInputValue(ts.toDate());
+}
+
+function toInputValue(d: Date): string {
   const m = `${d.getMonth() + 1}`.padStart(2, '0');
   const day = `${d.getDate()}`.padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function todayInputValue(): string {
+  return toInputValue(new Date());
+}
+
+/** 'YYYY-MM-DD' + n days → 'YYYY-MM-DD' (local calendar math). '' stays ''. */
+function plusDays(value: string, days: number): string {
+  if (!value) return '';
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return toInputValue(new Date(y, m - 1, d + days));
 }
 
 function parseDate(value: string): Timestamp | null {

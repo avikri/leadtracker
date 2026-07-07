@@ -42,6 +42,18 @@
               "extractLicenses": false,
               "sourceMap": true,
               "namedChunks": true
+            },
+            "test": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.test.ts"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -50,7 +62,8 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": { "buildTarget": "frontdesk-leads:build:production" },
-            "development": { "buildTarget": "frontdesk-leads:build:development" }
+            "development": { "buildTarget": "frontdesk-leads:build:development" },
+            "test": { "buildTarget": "frontdesk-leads:build:test" }
           },
           "defaultConfiguration": "development"
         }

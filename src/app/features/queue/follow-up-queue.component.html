@@ -1,17 +1,17 @@
-<section class="panel">
+<section class="panel" data-testid="queue">
   <header class="panel-head">
     <div>
       <h2>To contact today</h2>
-      <p class="panel-sub">New leads and trials with an open check-in, most overdue first. Quiz leads are called; everyone else texted.</p>
+      <p class="panel-sub">New leads and trials with a check-in due (Day 1 / 4 / 7 of the trial), most overdue first. Quiz leads are called; everyone else texted.</p>
     </div>
-    <span class="count-badge">{{ queue().length }}</span>
+    <span class="count-badge" data-testid="queue-count">{{ queue().length }}</span>
   </header>
 
   <!-- Queue-only filters — independent of the All-leads table's filter state. -->
   <div class="filter-bar">
     <label class="filter">
       <span>Source</span>
-      <select class="select" [value]="sourceFilter()" (change)="sourceFilter.set($any($event.target).value)">
+      <select class="select" data-testid="queue-filter-source" [value]="sourceFilter()" (change)="sourceFilter.set($any($event.target).value)">
         <option value="all">All</option>
         @for (s of sources; track s) {
           <option [value]="s">{{ SOURCE_LABEL[s] }}</option>
@@ -20,7 +20,7 @@
     </label>
     <label class="filter">
       <span>Contact</span>
-      <select class="select" [value]="methodFilter()" (change)="methodFilter.set($any($event.target).value)">
+      <select class="select" data-testid="queue-filter-method" [value]="methodFilter()" (change)="methodFilter.set($any($event.target).value)">
         <option value="all">All</option>
         @for (m of contactMethods; track m) {
           <option [value]="m">{{ CONTACT_METHOD_LABEL[m] }}</option>
@@ -29,7 +29,7 @@
     </label>
     <label class="filter">
       <span>Check-in</span>
-      <select class="select" [value]="checkinFilter()" (change)="checkinFilter.set($any($event.target).value)">
+      <select class="select" data-testid="queue-filter-checkin" [value]="checkinFilter()" (change)="checkinFilter.set($any($event.target).value)">
         <option value="all">All</option>
         @for (k of checkinStages; track k) {
           <option [value]="k">{{ TRIAL_TOUCHPOINT_LABEL[k] }}</option>
@@ -53,13 +53,13 @@
   } @else {
     <div class="queue-grid">
       @for (lead of queue(); track lead.id) {
-        <article class="queue-card">
+        <article class="queue-card" data-testid="queue-card" [attr.data-lead-name]="lead.name" [attr.data-source]="lead.source">
           <div class="queue-card-top">
             <span class="tag">{{ SOURCE_LABEL[lead.source] }}</span>
             <span class="queue-age">{{ relative(lead.createdAt) }}</span>
           </div>
 
-          <button class="queue-name" type="button" (click)="edit.emit(lead)">{{ lead.name }}</button>
+          <button class="queue-name" data-testid="queue-name" type="button" (click)="edit.emit(lead)">{{ lead.name }}</button>
           <div class="queue-phone">{{ lead.phone }}</div>
 
           @if (lead.serviceUsed) {
@@ -77,11 +77,11 @@
 
           <div class="queue-foot">
             @if (lead.source === 'trial') {
-              <button class="btn btn-primary btn-sm" type="button" (click)="markTouchpoint(lead)">
+              <button class="btn btn-primary btn-sm" data-testid="queue-action" type="button" (click)="markTouchpoint(lead)">
                 {{ touchpointActionLabel(lead) }}
               </button>
             } @else {
-              <button class="btn btn-primary btn-sm" type="button" (click)="markContacted(lead)">
+              <button class="btn btn-primary btn-sm" data-testid="queue-action" type="button" (click)="markContacted(lead)">
                 {{ contactActionLabel(lead.contactMethod) }}
               </button>
             }
