@@ -148,12 +148,17 @@ export class LeadModalComponent {
         if (this.draft.source !== this.editing.source) {
           await this.leadService.changeSource(id, this.editing, this.draft.source);
         }
-        await this.leadService.updateLead(id, {
-          source: this.draft.source,
-          contactMethod: defaultContactMethod(this.draft.source),
-          ...this.sharedPatch(),
-          ...this.sourcePatch(),
-        });
+        await this.leadService.updateLead(
+          id,
+          {
+            source: this.draft.source,
+            contactMethod: defaultContactMethod(this.draft.source),
+            ...this.sharedPatch(),
+            ...this.sourcePatch(),
+          },
+          // Lets the service re-derive the follow-up rest day if the lead date moved.
+          this.editing,
+        );
       } else {
         created = true;
         await this.leadService.createLead(this.toCreateDraft());

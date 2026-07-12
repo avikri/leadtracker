@@ -1,9 +1,12 @@
 import { test, expect, orgs, queueCard } from './support/fixtures';
 
 /**
- * The "To contact today" queue: New non-trial leads plus trials whose next incomplete
- * check-in is due (Day 1 / 4 / 7 from trialStartDate), and how they drop out once actioned.
- * Leads are seeded BEFORE sign-in so the live queue picks them up.
+ * The "To contact today" queue: New non-trial leads past their rest day, plus trials whose
+ * next incomplete check-in is due (Day 1 / 4 / 7 from trialStartDate), and how they drop out
+ * once actioned. Leads are seeded BEFORE sign-in so the live queue picks them up.
+ *
+ * Seeds omit `followUpFrom` unless a test is about the rest period — an absent field means
+ * "due now", exactly like the leads that predate the rest period.
  */
 
 /** N whole calendar days ago at noon, so day-boundary math can't flake around midnight. */
@@ -11,6 +14,14 @@ function daysAgo(n: number): Date {
   const d = new Date();
   d.setDate(d.getDate() - n);
   d.setHours(12, 0, 0, 0);
+  return d;
+}
+
+/** Midnight tonight — the rest day stamped on a lead entered today. */
+function startOfTomorrow(): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(0, 0, 0, 0);
   return d;
 }
 test.describe('Follow-up queue', () => {
@@ -44,6 +55,37 @@ test.describe('Follow-up queue', () => {
     await expect(queueCard(page, 'Q Already Contacted')).toHaveCount(0);
     await expect(queueCard(page, 'Q Converted')).toHaveCount(0);
     await expect(page.getByTestId('queue-count')).toHaveText('1');
+  });
+
+  test('a lead entered today rests out of the queue until tomorrow', async ({
+    seed,
+    loginAsPrimary,
+    page,
+  }) => {
+    // Entered today → rest day is midnight tonight → held back, and counted as resting.
+    await seed.seedLead(orgs.A, {
+      source: 'new',
+      name: 'Entered Today',
+      status: 'New',
+      followUpFrom: startOfTomorrow(),
+    });
+    // Entered yesterday → its rest day is behind us → due now.
+    await seed.seedLead(orgs.A, {
+      source: 'new',
+      name: 'Entered Yesterday',
+      status: 'New',
+      createdAt: daysAgo(1),
+      followUpFrom: daysAgo(1), // noon yesterday: safely in the past whenever the test runs
+    });
+    // Leads written before the rest period existed have no stamp → due now, as they were.
+    await seed.seedLead(orgs.A, { source: 'new', name: 'Legacy Lead', status: 'New' });
+    await loginAsPrimary();
+
+    await expect(queueCard(page, 'Entered Yesterday')).toBeVisible();
+    await expect(queueCard(page, 'Legacy Lead')).toBeVisible();
+    await expect(queueCard(page, 'Entered Today')).toHaveCount(0);
+    await expect(page.getByTestId('queue-count')).toHaveText('2');
+    await expect(page.getByTestId('queue-resting')).toContainText('1 lead entered today');
   });
 
   test('a trial with a DUE check-in is queued and leaves when it is done', async ({

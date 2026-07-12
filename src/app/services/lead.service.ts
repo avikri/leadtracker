@@ -37,6 +37,8 @@ import {
   TRIAL_TOUCHPOINT_DUE_DAY,
   TrialTouchpointKey,
   defaultContactMethod,
+  followUpDue,
+  followUpFromDate,
   nextOutstandingTouchpointKey,
   trialDayNumber,
 } from '../models/lead.constants';
@@ -187,7 +189,10 @@ export class LeadService {
    *    (Day 1 / 4 / 7) — and stays until it's marked complete, so an overdue check-in is
    *    never silently dropped. Between due days, and once every check-in is done or the
    *    deal is closed (Converted/Lost), the trial stays out of the queue.
-   *  - Every other source keeps the simple rule: still at status 'New'.
+   *  - Every other source: still at status 'New' AND past its rest day (`followUpFrom`,
+   *    stamped at creation) — a lead entered today is only asked for tomorrow. It is in the
+   *    book immediately either way; the rest period only defers the reminder. Leads created
+   *    before the rest period existed have no `followUpFrom` and queue immediately, as before.
    *
    * Sort is by "days waiting" descending so the oldest New leads and the most
    * trial-day-overdue trials float to the top. See `queuePriority`.
@@ -196,6 +201,14 @@ export class LeadService {
     this.leads()
       .filter((l) => this.inFollowUpQueue(l))
       .sort((a, b) => this.queuePriority(b) - this.queuePriority(a)),
+  );
+
+  /**
+   * New leads still resting — entered (or dated) today, so the queue holds them until
+   * tomorrow. Surfaced so the queue can say where they went instead of them just vanishing.
+   */
+  readonly restingLeads = computed(() =>
+    this.leads().filter((l) => l.source !== 'trial' && l.status === 'New' && !followUpDue(l)),
   );
 
   /** Whether a lead belongs in today's follow-up queue (see `followUpQueue`). */
@@ -208,7 +221,7 @@ export class LeadService {
       // Due (or overdue) check-ins surface and stay; between due days the trial rests.
       return trialDayNumber(lead) >= TRIAL_TOUCHPOINT_DUE_DAY[next];
     }
-    return lead.status === 'New';
+    return lead.status === 'New' && followUpDue(lead);
   }
 
   /**
@@ -311,7 +324,7 @@ export class LeadService {
 
   /**
    * Single ingestion entry point. Stamps timestamps, status='New', source-correct
-   * contactMethod, and (for trials) the empty touchpoint scaffold.
+   * contactMethod, the follow-up rest day, and (for trials) the empty touchpoint scaffold.
    *
    * TODO: Phase 2 ingestion — the Mindbody (new clients & trials) and ScoreApp (quiz)
    * importers should call this exact method so manual + automatic leads stay identical.
@@ -330,6 +343,7 @@ export class LeadService {
 
       status: 'New',
       contactMethod: defaultContactMethod(draft.source),
+      ...this.followUpRest(draft),
 
       createdAt: now,
       contactedAt: null,
@@ -348,9 +362,28 @@ export class LeadService {
 
   // --- Edit -------------------------------------------------------------------
 
-  /** Patch arbitrary shared/source fields. Status flow goes through the methods below. */
-  async updateLead(id: string, patch: Partial<Lead>): Promise<void> {
-    await updateDoc(this.docRef(id), patch as unknown as UpdateData<DocumentData>);
+  /**
+   * Patch arbitrary shared/source fields. Status flow goes through the methods below.
+   *
+   * Pass `current` when the patch can move the lead's business date (`leadDate`): the rest
+   * day is then re-derived from it, so a lead backdated after entry stops waiting for
+   * tomorrow. Only a lead that ALREADY has a rest day is rescheduled — one created before
+   * the rest period existed never gains one from an edit.
+   */
+  async updateLead(id: string, patch: Partial<Lead>, current?: Lead): Promise<void> {
+    const reschedule =
+      current?.followUpFrom != null && patch.leadDate !== undefined
+        ? {
+            followUpFrom: Timestamp.fromDate(
+              // createdAt is briefly null in a latency-compensated snapshot — treat as now.
+              followUpFromDate((patch.leadDate ?? current.createdAt)?.toDate() ?? new Date()),
+            ),
+          }
+        : {};
+    await updateDoc(this.docRef(id), {
+      ...patch,
+      ...reschedule,
+    } as unknown as UpdateData<DocumentData>);
   }
 
   /**
@@ -445,6 +478,20 @@ export class LeadService {
 
   private docRef(id: string) {
     return doc(this.firestore, 'leads', id);
+  }
+
+  /**
+   * The rest-day stamp for a brand-new lead: it stays out of the follow-up queue until the
+   * day after its EFFECTIVE date — `leadDate` when staff backdated the entry, else now — so
+   * a lead backdated to last week is due immediately while one entered today waits a day.
+   *
+   * Trials get NO stamp: their queue timing is the Day 1 / 4 / 7 check-in schedule, and a
+   * trial starting today is due its first check-in today.
+   */
+  private followUpRest(draft: LeadDraft): Record<string, unknown> {
+    if (draft.source === 'trial') return {};
+    const effective = draft.leadDate?.toDate() ?? new Date();
+    return { followUpFrom: Timestamp.fromDate(followUpFromDate(effective)) };
   }
 
   /** Build the source-specific slice of a lead from a draft/lead, defaulting trial scaffold. */

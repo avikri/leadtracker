@@ -18,8 +18,9 @@ import {
 import { relative } from '../../shared/format.util';
 
 /**
- * "To contact today" queue: every non-trial lead still at status New, plus trials whose
- * next incomplete check-in is due (Day 1 / 4 / 7 from trialStartDate), oldest first.
+ * "To contact today" queue: every non-trial lead still at status New whose rest day has
+ * passed (leads entered today are worked tomorrow), plus trials whose next incomplete
+ * check-in is due (Day 1 / 4 / 7 from trialStartDate), oldest first.
  * One-click advance whose label matches the contact method (texted vs called).
  * Reads straight from LeadService signals — no inputs needed.
  */
@@ -67,6 +68,13 @@ export class FollowUpQueueComponent {
       return true;
     }),
   );
+
+  /**
+   * How many just-entered leads are still resting (they join the queue tomorrow). Shown so
+   * a lead added today reads as "waiting", not "missing". Ignores the local filters — it's
+   * about leads that aren't in the queue yet, which no queue filter could reveal.
+   */
+  readonly restingCount = computed(() => this.leadService.restingLeads().length);
 
   readonly sources = LEAD_SOURCES;
   readonly contactMethods = CONTACT_METHODS;

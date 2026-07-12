@@ -2,7 +2,7 @@
   <header class="panel-head">
     <div>
       <h2>To contact today</h2>
-      <p class="panel-sub">New leads and trials with a check-in due (Day 1 / 4 / 7 of the trial), most overdue first. Quiz leads are called; everyone else texted.</p>
+      <p class="panel-sub">Leads entered yesterday or earlier, plus trials with a check-in due (Day 1 / 4 / 7 of the trial), most overdue first. Quiz leads are called; everyone else texted.</p>
     </div>
     <span class="count-badge" data-testid="queue-count">{{ queue().length }}</span>
   </header>
@@ -38,6 +38,13 @@
     </label>
   </div>
 
+  <!-- Leads entered today are in the book but rest until tomorrow — say so, so they don't read as lost. -->
+  @if (restingCount() > 0) {
+    <p class="panel-sub" data-testid="queue-resting">
+      {{ restingCount() }} {{ restingCount() === 1 ? 'lead' : 'leads' }} entered today — they're in All leads now, and join this queue tomorrow.
+    </p>
+  }
+
   @if (queue().length === 0) {
     <p class="empty">
       <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -47,7 +54,7 @@
       @if (anyFilterActive()) {
         No one waiting matches these filters — clear them to see the full queue.
       } @else {
-        Queue clear — every new lead has been contacted.
+        Queue clear — every lead due today has been contacted.
       }
     </p>
   } @else {

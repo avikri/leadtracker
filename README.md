@@ -51,7 +51,7 @@ src/app/
     seed.service.ts        Dev-only, seeds once if empty
   features/
     dashboard/             Top bar (+ Add lead, disabled Auto-import) + queue + table + modal
-    queue/                 "To contact today" — status New, oldest first, method-correct action
+    queue/                 "To contact today" — status New and past its rest day, oldest first, method-correct action
     leads-table/           All leads, filter by source/status, inline pipeline actions, trial check-ins
     lead-modal/            Add/Edit one form. Source selector first; changing source is first-class.
 ```
@@ -66,6 +66,8 @@ and call its mutation methods. That's the one seam to extend.
 - **Follow-up:** `status` (`New → Contacted → Responded → Converted | Lost`), `contactMethod`
   (`text` | `call`), and a timestamp for every transition (`contactedAt`, `respondedAt`,
   `convertedAt`, `lostAt`, `lastContactAt`) plus `conversionOutcome`.
+- **Follow-up rest day:** `followUpFrom` — the earliest a lead may enter the queue (see below).
+  Absent on trials and on every lead written before the rest day existed, which means "due now".
 - **New-client-only:** `leadDate` — the editable business date (backdatable); `createdAt`
   stays the system entry timestamp, and date filtering uses `leadDate ?? createdAt`.
 - **Trial-only:** `trialStartDate` (Day 1 — drives the Day 1 / 4 / 7 check-in queue),
@@ -80,6 +82,12 @@ and call its mutation methods. That's the one seam to extend.
 - **Contact method follows the source** — quiz leads are *called*, everyone else *texted*.
   Driven by `defaultContactMethod()` in `lead.constants.ts`; the queue/table action labels read
   "Mark called" / "Mark texted" off the lead. Nothing hard-codes "text".
+- **New leads rest a day before they're chased** — a lead entered today lands in "All leads"
+  immediately but only joins the "To contact today" queue the next calendar day. `createLead()`
+  stamps `followUpFrom` (start of the day after the lead's `leadDate ?? entry` — so backdated
+  entries are due at once), and `followUpDue()` in `lead.constants.ts` gates the queue. Trials are
+  exempt: their timing is the Day 1 / 4 / 7 check-in schedule. Leads without the field queue
+  immediately, so introducing the rest day changed nothing about existing leads.
 - **"Converted" is source-specific** — one `Converted` status plus a free-text `conversionOutcome`
   and `convertedAt`, so it stays queryable. `CONVERSION_PROMPT` seeds the wording per source.
 - **"Lost" is manual only** — there is no time-based auto-write-off. `LeadService.markLost()` is the

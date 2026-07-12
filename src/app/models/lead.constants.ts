@@ -53,6 +53,38 @@ export function contactVerbPast(method: ContactMethod): string {
   return method === 'call' ? 'Called' : 'Texted';
 }
 
+/**
+ * How long a newly entered lead RESTS before the follow-up queue asks the front desk to
+ * contact it: leads entered today are worked tomorrow. Trials are exempt — their queue
+ * timing is the Day 1 / 4 / 7 check-in schedule.
+ */
+export const FOLLOW_UP_REST_DAYS = 1;
+
+/**
+ * When a lead whose effective date is `on` becomes due to contact: the START of the calendar
+ * day `FOLLOW_UP_REST_DAYS` later. Whole calendar days, not 24h from entry, so a lead typed
+ * in at 5pm is in the queue for the next morning's shift rather than appearing mid-afternoon.
+ *
+ * Callers pass the EFFECTIVE date — `leadDate` when staff backdated the entry, else the
+ * moment of entry — so a lead backdated to last week is already past its rest day and
+ * surfaces immediately.
+ */
+export function followUpFromDate(on: Date): Date {
+  return new Date(on.getFullYear(), on.getMonth(), on.getDate() + FOLLOW_UP_REST_DAYS);
+}
+
+/**
+ * Whether a lead's rest period is over, i.e. it may appear in the follow-up queue today.
+ *
+ * An ABSENT `followUpFrom` means due now. That covers both exempt trials and every lead
+ * written before the rest period existed, so introducing it changed nothing about leads
+ * already in the book.
+ */
+export function followUpDue(lead: Lead, now: number = Date.now()): boolean {
+  const from = lead.followUpFrom?.toMillis();
+  return from == null || from <= now;
+}
+
 /** Suggested wording for what a conversion means, per source (free-text, editable). */
 export const CONVERSION_PROMPT: Record<LeadSource, string> = {
   new: 'Returned / re-booked',

@@ -102,6 +102,12 @@ export interface SeedLeadOverrides {
   notes?: string | null;
   status?: LeadStatus;
   createdAt?: Date;
+  /**
+   * Non-trial: the rest day before the lead may enter the follow-up queue. OMIT for a lead
+   * that predates the rest period (absent field = due now, which is what most tests want);
+   * set it to a future moment to seed a lead still resting.
+   */
+  followUpFrom?: Date;
   /** Trial: mark specific touchpoints done. */
   touchpointsDone?: Array<'firstServiceContact' | 'midTrialCheck' | 'finalTrialCall'>;
   promoName?: string | null;
@@ -146,6 +152,10 @@ export async function seedLead(orgId: string, overrides: SeedLeadOverrides = {})
     conversionOutcome: null,
     lostAt: null,
   };
+
+  if (overrides.followUpFrom) {
+    lead['followUpFrom'] = overrides.followUpFrom;
+  }
 
   if (source === 'new') {
     lead['leadDate'] = overrides.leadDate ?? null;

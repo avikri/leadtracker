@@ -61,6 +61,17 @@ export interface Lead {
   // --- Follow-up block ---
   status: LeadStatus;
   contactMethod: ContactMethod;
+  /**
+   * Rest period: the earliest moment this lead may surface in the "To contact today" queue —
+   * the start of the calendar day AFTER its effective date, so a lead entered today is only
+   * worked from tomorrow (see `followUpFromDate`). It never affects the "All leads" table.
+   *
+   * Only stamped on NON-trial leads created after the rest period was introduced. Trials are
+   * exempt (their queue timing is the Day 1/4/7 check-in schedule), and leads that predate
+   * the field have it ABSENT, which means "due now" — this rule never retro-holds an
+   * existing lead. See `followUpDue`.
+   */
+  followUpFrom?: Timestamp | null;
 
   // --- Timestamps (every transition recorded) ---
   createdAt: Timestamp;
